@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quick Clip</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f4f4f9; }
+    h2 { color: #333; text-align: center; }
+    textarea { width: 100%; height: 120px; padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; box-sizing: border-box; }
+    button { width: 100%; padding: 14px; margin-top: 10px; border: none; border-radius: 8px; background: #007aff; color: white; font-size: 16px; font-weight: bold; cursor: pointer; }
+    button:active { opacity: 0.8; }
+    .card { background: white; padding: 15px; border-radius: 8px; margin-top: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); word-break: break-word; white-space: pre-wrap; }
+    .copy-btn { background: #34c759; margin-top: 8px; padding: 8px; font-size: 14px; }
+  </style>
+</head>
+<body>
+
+  <h2>Quick Clip 📋</h2>
+  <textarea id="inputText" placeholder="Вставьте текст или скопируйте отсюда..."></textarea>
+  <button onclick="sendClip()">Отправить в буфер</button>
+
+  <div id="clipsList"></div>
+
+  <script>
+    // Замени данные на свои из Supabase!
+    const SUPABASE_URL = 'ТВОЙ_PROJECT_URL';
+    const SUPABASE_KEY = 'ТВОЙ_PUBLISHABLE_KEY';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    async function sendClip() {
+      const text = document.getElementById('inputText').value;
+      if (!text.trim()) return;
+      await supabase.from('clips').insert([{ content: text }]);
+      document.getElementById('inputText').value = '';
+    }
+
+    async function loadClips() {
+      const { data } = await supabase.from('clips').select('*').order('created_at', { ascending: false }).limit(10);
+      renderClips(data || []);
+    }
+
+    function renderClips(clips) {
+      const list = document.getElementById('clipsList');
+      list.innerHTML = clips.map(c => `
+        <div class="card">
+          <div>${escapeHtml(c.content)}</div>
+          <button class="copy-btn" onclick="copyText('${escapeHtml(c.content)}')">Скопировать</button>
+        </div>
+      `).join('');
+    }
+
+    function copyText(text) {
+      navigator.clipboard.writeText(text);
+      alert('Скопировано!');
+    }
+
+    function escapeHtml(text) {
+      return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    // Realtime подписка
+    supabase.channel('public:clips')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'clips' }, payload => {
+        loadClips();
+      })
+      .subscribe();
+
+    loadClips();
+  </script>
+</body>
+</html>
