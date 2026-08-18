@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+    <!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
@@ -27,7 +27,7 @@
 
   <script>
     const SUPABASE_URL = 'https://vnzgdrqupislieaonpic.supabase.co';
-    const SUPABASE_KEY = 'твой_длинный_ключ_sb_publishable_...';
+    const SUPABASE_KEY = 'sb_publishable_8l-2K2h61ld7yMKs2RKF_g-Uhx1QBMw';
     
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -37,15 +37,20 @@
       if (!text.trim()) return;
 
       btn.innerText = 'Отправка...';
-      const { error } = await supabase.from('clips').insert([{ content: text }]);
+      const { data, error } = await supabase.from('clips').insert([{ content: text }]);
 
       if (error) {
-        alert('Ошибка: ' + error.message);
+        alert('Ошибка от Supabase: ' + JSON.stringify(error));
         btn.innerText = 'Ошибка отправки';
+        btn.style.background = 'red';
       } else {
         document.getElementById('inputText').value = '';
         btn.innerText = 'Отправлено ✔️';
-        setTimeout(() => { btn.innerText = 'Отправить в буфер'; }, 2000);
+        btn.style.background = '#34c759';
+        setTimeout(() => { 
+          btn.innerText = 'Отправить в буфер'; 
+          btn.style.background = '#007aff';
+        }, 2000);
         loadClips();
       }
     }
@@ -82,7 +87,6 @@
       return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    // Загружаем данные сразу при открытии
     loadClips();
   </script>
 </body>
