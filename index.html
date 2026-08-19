@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quick Clip v2.0</title>
+  <title>Quick Clip v2.1</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f4f4f9; }
@@ -13,10 +13,9 @@
     button:active { opacity: 0.8; }
     .copy-btn { background: #34c759; margin-top: 8px; padding: 8px; font-size: 14px; color: white; }
     .card { background: white; padding: 15px; margin-top: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); word-break: break-all; }
-    #status { font-size: 13px; color: #34c759; text-align: center; margin-top: 10px; font-weight: bold; }
+    #status { font-size: 13px; color: #ff3b30; text-align: center; margin-top: 10px; font-weight: bold; }
     #version-tag { font-size: 11px; color: #8e8e93; text-align: center; margin-top: 4px; }
     
-    /* Стили для блока тестировщика (Debug Console) */
     .debug-box { margin-top: 25px; padding: 12px; background: #1c1c1e; color: #30d158; font-family: monospace; font-size: 11px; border-radius: 8px; max-height: 180px; overflow-y: auto; border: 1px solid #3a3a3c; }
     .debug-title { color: #ffd60a; font-weight: bold; margin-bottom: 6px; display: flex; justify-content: space-between; }
     .log-err { color: #ff453a; }
@@ -29,12 +28,11 @@
   <textarea id="inputText" placeholder="Вставьте текст или скопируйте отсюда..."></textarea>
   <button id="sendBtn" onclick="sendClip()">Отправить в буфер</button>
   
-  <div id="status">🔴 Подключение к базе...</div>
-  <div id="version-tag">Версия v2.0</div>
+  <div id="status">🔴 Инициализация...</div>
+  <div id="version-tag">Версия v2.1</div>
 
   <div id="clipsList"></div>
 
-  <!-- Встроенная панель тестировщика -->
   <div class="debug-box">
     <div class="debug-title">
       <span>🛠 ТЕСТИРОВЩИК / ЛОГ СВЯЗИ</span>
@@ -45,13 +43,13 @@
 
   <script>
     const SUPABASE_URL = 'https://vnzgdrqupislieaonpic.supabase.co';
-    // Исправленный корректный ключ
     const SUPABASE_KEY = 'sb_publishable_8I-2Kz4A1IdTy4KsJRKF_g_UnxIQ8MW';
 
     let supabase;
 
     function log(msg, type = 'normal') {
       const logs = document.getElementById('debugLogs');
+      if (!logs) return;
       const time = new Date().toLocaleTimeString();
       let cls = '';
       if (type === 'err') cls = 'class="log-err"';
@@ -64,99 +62,85 @@
       document.getElementById('debugLogs').innerHTML = '';
     }
 
-    try {
-      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-      log('Инициализация Supabase SDK прошла успешно', 'info');
-    } catch (e) {
-      log('Ошибка инициализации SDK: ' + e.message, 'err');
-    }
-
     async function sendClip() {
       const btn = document.getElementById('sendBtn');
       const text = document.getElementById('inputText').value;
       if (!text.trim()) {
-        log('Попытка отправить пустой текст отменена', 'info');
+        log('Пустой текст — отмена отправки', 'info');
         return;
       }
 
       btn.innerText = 'Отправка...';
-      log('Отправка запроса INSERT в таблицу "clips"...');
+      log('Отправка в Supabase...');
 
-      const { data, error } = await supabase.from('clips').insert([{ content: text }]).select();
+      try {
+        const { error } = await supabase.from('clips').insert([{ content: text }]);
 
-      if (error) {
-        log('ОШИБКА ОТПРАВКИ: ' + error.message + ' (Код: ' + error.code + ')', 'err');
-        btn.innerText = 'Ошибка отправки';
-        btn.style.background = '#ff3b30';
-      } else {
-        log('Успешно сохранено в БД. ID записи: ' + (data[0]?.id || 'OK'), 'info');
-        document.getElementById('inputText').value = '';
-        btn.innerText = 'Отправлено ✔';
-        btn.style.background = '#34c759';
-        
-        // Попытка записать в системный буфер текущего устройства
-        navigator.clipboard.writeText(text).then(() => {
-          log('Скопировано в системный буфер обмена');
-        }).catch(err => {
-          log('Не удалось записать в буфер устройства: ' + err.message, 'info');
-        });
+        if (error) {
+          log('ОШИБКА: ' + error.message, 'err');
+          btn.innerText = 'Ошибка отправки';
+          btn.style.background = '#ff3b30';
+        } else {
+          log('Запись успешно добавлена в БД', 'info');
+          document.getElementById('inputText').value = '';
+          btn.innerText = 'Отправлено ✔';
+          btn.style.background = '#34c759';
+          
+          navigator.clipboard.writeText(text).catch(() => {});
 
-        setTimeout(() => {
-          btn.innerText = 'Отправить в буфер';
-          btn.style.background = '#007aff';
-        }, 2000);
+          setTimeout(() => {
+            btn.innerText = 'Отправить в буфер';
+            btn.style.background = '#007aff';
+          }, 2000);
+
+          loadClips();
+        }
+      } catch (err) {
+        log('Сбой выполнения: ' + err.message, 'err');
       }
     }
 
     async function loadClips() {
       log('Загрузка списка записей...');
       const list = document.getElementById('clipsList');
-      const { data, error } = await supabase
-        .from('clips')
-        .select('*')
-        .order('created_at', { ascending: false });
+      
+      try {
+        const { data, error } = await supabase
+          .from('clips')
+          .select('*')
+          .order('created_at', { ascending: false });
 
-      if (error) {
-        log('ОШИБКА ЗАГРУЗКИ: ' + error.message, 'err');
-        document.getElementById('status').innerText = '🔴 Ошибка базы данных';
-        document.getElementById('status').style.color = '#ff3b30';
-        list.innerHTML = `<div class="card" style="color:red;">Ошибка: ${error.message}</div>`;
-        return;
+        if (error) {
+          log('ОШИБКА ЗАГРУЗКИ: ' + error.message, 'err');
+          document.getElementById('status').innerText = '🔴 Ошибка базы: ' + error.message;
+          document.getElementById('status').style.color = '#ff3b30';
+          list.innerHTML = `<div class="card" style="color:red;">Ошибка: ${error.message}</div>`;
+          return;
+        }
+
+        document.getElementById('status').innerText = '🟢 Подключение работает';
+        document.getElementById('status').style.color = '#34c759';
+        log('Успешно загружено записей: ' + (data ? data.length : 0), 'info');
+
+        if (!data || data.length === 0) {
+          list.innerHTML = '<p style="text-align:center; color:#999; margin-top:20px;">Буфер пуст</p>';
+          return;
+        }
+
+        list.innerHTML = data.map(c => `
+          <div class="card">
+            <div>${escapeHtml(c.content)}</div>
+            <button class="copy-btn" onclick="copyText('${escapeHtml(c.content).replace(/'/g, "\\'")}')">Скопировать</button>
+          </div>
+        `).join('');
+      } catch (err) {
+        log('Критический сбой сети: ' + err.message, 'err');
       }
-
-      document.getElementById('status').innerText = '🟢 Подключение работает';
-      document.getElementById('status').style.color = '#34c759';
-      log('Загружено записей из БД: ' + (data ? data.length : 0), 'info');
-
-      if (!data || data.length === 0) {
-        list.innerHTML = '<p style="text-align:center; color:#999; margin-top:20px;">Буфер пуст</p>';
-        return;
-      }
-
-      list.innerHTML = data.map(c => `
-        <div class="card">
-          <div>${escapeHtml(c.content)}</div>
-          <button class="copy-btn" onclick="copyText('${escapeHtml(c.content).replace(/'/g, "\\'")}')">Скопировать</button>
-        </div>
-      `).join('');
-    }
-
-    function subscribeRealtime() {
-      log('Подключение к Realtime-каналу (автосинхронизация)...');
-      supabase
-        .channel('schema-db-changes')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'clips' }, payload => {
-          log('Получено новое сообщение в реальном времени!', 'info');
-          loadClips();
-        })
-        .subscribe((status) => {
-          log('Статус Realtime: ' + status, status === 'SUBSCRIBED' ? 'info' : 'normal');
-        });
     }
 
     function copyText(text) {
       navigator.clipboard.writeText(text).then(() => {
-        log('Скопировано пользователем из карточки');
+        log('Скопировано в буфер');
         alert('Скопировано в буфер!');
       }).catch(err => {
         log('Ошибка копирования: ' + err, 'err');
@@ -168,10 +152,15 @@
       return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
-      log('Запуск версии v2.0...', 'info');
-      loadClips();
-      subscribeRealtime();
+    window.addEventListener('load', () => {
+      log('Запуск версии v2.1', 'info');
+      try {
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        log('Клиент Supabase инициализирован', 'info');
+        loadClips();
+      } catch (e) {
+        log('Ошибка инициализации: ' + e.message, 'err');
+      }
     });
   </script>
 </body>
