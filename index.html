@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quick Clip v2.2</title>
+  <title>Quick Clip v2.3</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f4f4f9; }
@@ -15,6 +15,13 @@
     .card { background: white; padding: 15px; margin-top: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); word-break: break-all; }
     #status { font-size: 13px; color: #34c759; text-align: center; margin-top: 10px; font-weight: bold; }
     #version-tag { font-size: 11px; color: #8e8e93; text-align: center; margin-top: 4px; }
+    
+    /* Логгер v2.3 */
+    .debug-box { margin-top: 25px; padding: 12px; background: #1c1c1e; color: #30d158; font-family: monospace; font-size: 11px; border-radius: 8px; max-height: 250px; overflow-y: auto; border: 1px solid #3a3a3c; }
+    .debug-title { color: #ffd60a; font-weight: bold; margin-bottom: 6px; display: flex; justify-content: space-between; }
+    .log-err { color: #ff453a; margin-bottom: 4px;}
+    .log-warn { color: #ff9f0a; margin-bottom: 4px;}
+    .log-info { color: #64d2ff; margin-bottom: 4px;}
   </style>
 </head>
 <body>
@@ -23,17 +30,40 @@
   <textarea id="inputText" placeholder="Вставьте текст или скопируйте отсюда..."></textarea>
   <button id="sendBtn" onclick="sendClip()">Отправить в буфер</button>
   
-  <div id="status">🟢 Готово к работе</div>
-  <div id="version-tag">Версия v2.2</div>
+  <div id="status">⏳ Загрузка...</div>
+  <div id="version-tag">Версия v2.3</div>
 
   <div id="clipsList"></div>
 
+  <!-- Блок тестировщика -->
+  <div class="debug-box">
+    <div class="debug-title">
+      <span>🛠 ТЕСТИРОВЩИК v2.3</span>
+      <span style="cursor:pointer; color:#8e8e93;" onclick="clearLogs()">[Очистить]</span>
+    </div>
+    <div id="debugLogs"></div>
+  </div>
+
   <script>
-    // Точные исходные параметры подключения
     const SUPABASE_URL = 'https://vnzgdrqupislieaonpic.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_8I-2Kz4A1IdTy4KsJRKF_g_UnxIQ8MW';
-
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    function log(msg, type = 'normal') {
+      const logs = document.getElementById('debugLogs');
+      if (!logs) return;
+      const time = new Date().toLocaleTimeString();
+      let cls = '';
+      if (type === 'err') cls = 'class="log-err"';
+      if (type === 'warn') cls = 'class="log-warn"';
+      if (type === 'info') cls = 'class="log-info"';
+      logs.innerHTML += `<div ${cls}>[${time}] ${msg}</div>`;
+      logs.scrollTop = logs.scrollHeight;
+    }
+
+    function clearLogs() {
+      document.getElementById('debugLogs').innerHTML = '';
+    }
 
     async function sendClip() {
       const btn = document.getElementById('sendBtn');
@@ -41,14 +71,21 @@
       if (!text.trim()) return;
 
       btn.innerText = 'Отправка...';
+      log('--- ПОПЫТКА ОТПРАВКИ ---', 'info');
+      log(`Текст: "${text.substring(0, 20)}..."`);
 
-      const { data, error } = await supabase.from('clips').insert([{ content: text }]);
+      // .select() нужен, чтобы гарантированно получить ошибку, если таблица заблокирована
+      const { data, error } = await supabase.from('clips').insert([{ content: text }]).select();
 
       if (error) {
-        alert('Ошибка от Supabase: ' + JSON.stringify(error));
+        log('❌ ОШИБКА Supabase: ' + error.message, 'err');
+        if (error.code === '42501') {
+          log('⚠️ ПРИЧИНА: Row Level Security (RLS). База заблокировала запись. Необходимо настроить Policies в панели Supabase!', 'err');
+        }
         btn.innerText = 'Ошибка отправки';
         btn.style.background = '#ff3b30';
       } else {
+        log('✅ Успешно отправлено! ID записи: ' + (data && data[0] ? data[0].id : 'OK'), 'info');
         document.getElementById('inputText').value = '';
         btn.innerText = 'Отправлено ✔';
         btn.style.background = '#34c759';
@@ -63,6 +100,7 @@
     }
 
     async function loadClips() {
+      log('--- ЗАГРОЗКА ДАННЫХ ---', 'info');
       const list = document.getElementById('clipsList');
       const { data, error } = await supabase
         .from('clips')
@@ -70,9 +108,10 @@
         .order('created_at', { ascending: false });
 
       if (error) {
+        log('❌ ОШИБКА ЗАГРУЗКИ: ' + error.message, 'err');
         document.getElementById('status').innerText = '🔴 Ошибка базы данных';
         document.getElementById('status').style.color = '#ff3b30';
-        list.innerHTML = `<div class="card" style="color:red;">Ошибка загрузки: ${error.message}</div>`;
+        list.innerHTML = `<div class="card" style="color:red;">Ошибка: ${error.message}</div>`;
         return;
       }
 
@@ -80,10 +119,12 @@
       document.getElementById('status').style.color = '#34c759';
 
       if (!data || data.length === 0) {
+        log('⚠️ База пуста (или скрыта политиками RLS).', 'warn');
         list.innerHTML = '<p style="text-align:center; color:#999; margin-top:20px;">Буфер пуст</p>';
         return;
       }
 
+      log(`✅ Успешно загружено ${data.length} записей.`, 'info');
       list.innerHTML = data.map(c => `
         <div class="card">
           <div>${escapeHtml(c.content)}</div>
@@ -94,9 +135,10 @@
 
     function copyText(text) {
       navigator.clipboard.writeText(text).then(() => {
+        log('📋 Текст скопирован в системный буфер', 'info');
         alert('Скопировано в буфер!');
       }).catch(err => {
-        alert('Не удалось скопировать: ' + err);
+        log('❌ Ошибка копирования: ' + err, 'err');
       });
     }
 
@@ -105,15 +147,18 @@
       return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
-    // Автоматическое обновление данных на ПК при отправке с телефона
+    log('🔌 Подключение Realtime канала (WebSockets)...', 'info');
     supabase
       .channel('public:clips')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'clips' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clips' }, payload => {
+        log('🔄 Получено обновление от базы (Realtime)!', 'info');
         loadClips();
       })
-      .subscribe();
+      .subscribe((status) => {
+         log('📡 Статус подписки: ' + status, 'info');
+      });
 
-    // Старт
+    log('🚀 Инициализация v2.3 завершена. Запрашиваю данные...', 'info');
     loadClips();
   </script>
 </body>
