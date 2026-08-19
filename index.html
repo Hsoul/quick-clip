@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quick Clip v3.9</title>
+  <title>Quick Clip v3.7</title>
 
   <style>
     body { 
@@ -14,12 +14,7 @@
       background-color: #f2f2f7; 
     }
     
-    h2 { 
-      color: #1c1c1e; 
-      text-align: center; 
-      margin-bottom: 15px; 
-      font-weight: 700; 
-    }
+    h2 { color: #1c1c1e; text-align: center; margin-bottom: 15px; font-weight: 700; }
     
     textarea { 
       width: 100%; 
@@ -52,6 +47,21 @@
       gap: 8px;
     }
     
+    .btn-attach { 
+      background: linear-gradient(180deg, #ffffff 0%, #e5e5ea 100%); 
+      color: #1c1c1e; 
+      border: 1px solid #c7c7cc;
+      box-shadow: 0 3px 0 #b2b2b7, 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .btn-attach:active { transform: translateY(2px); box-shadow: 0 1px 0 #b2b2b7; }
+    
+    .btn-file-ready { 
+      background: linear-gradient(180deg, #6366f1 0%, #4f46e5 100%); 
+      color: white; 
+      box-shadow: 0 3px 0 #3730a3, 0 4px 8px rgba(79,70,229,0.3);
+    }
+    .btn-file-ready:active { transform: translateY(2px); box-shadow: 0 1px 0 #3730a3; }
+
     .btn-primary { 
       background: linear-gradient(180deg, #007aff 0%, #0056b3 100%); 
       color: white; 
@@ -97,6 +107,8 @@
     
     #status { font-size: 13px; color: #ff9f0a; text-align: center; margin-top: 14px; font-weight: 600; }
     #version-tag { font-size: 11px; color: #8e8e93; text-align: center; margin-top: 4px; }
+    
+    input[type="file"] { display: none; }
   </style>
 </head>
 <body>
@@ -104,11 +116,14 @@
   <h2>Quick Clip 📋</h2>
   <textarea id="inputText" placeholder="Вставьте текст или скопируйте отсюда..."></textarea>
   
+  <button id="attachBtn" class="btn btn-attach" onclick="triggerFileInput()">📎 Прикрепить файл</button>
+  <input type="file" id="fileInput" onchange="handleFileSelect(event)">
+
   <button id="sendBtn" class="btn btn-primary" onclick="sendClip()">Отправить в буфер</button>
   <button id="clearBtn" class="btn btn-clear" onclick="clearAllHistory()">🗑 Очистить всю историю</button>
 
-  <div id="status">⏳ Подключение...</div>
-  <div id="version-tag">Версия v3.9 • Stable Text Edition</div>
+  <div id="status">⏳ Подключение v3.7...</div>
+  <div id="version-tag">Версия v3.7 • Cyrillic Fix & Storage Ready</div>
 
   <div id="clipsList"></div>
 
@@ -123,10 +138,43 @@
       'Prefer': 'return=representation'
     };
 
+    let selectedFile = null;
     let isClearing = false;
 
-    // Отправка текста
+    function triggerFileInput() {
+      if (selectedFile) {
+        selectedFile = null;
+        document.getElementById('fileInput').value = '';
+        const btn = document.getElementById('attachBtn');
+        btn.innerHTML = '📎 Прикрепить файл';
+        btn.className = 'btn btn-attach';
+        return;
+      }
+      document.getElementById('fileInput').click();
+    }
+
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      if (file.size > 15 * 1024 * 1024) {
+        alert("Файл слишком большой! Максимальный размер — 15 МБ.");
+        event.target.value = '';
+        return;
+      }
+
+      selectedFile = file;
+      const btn = document.getElementById('attachBtn');
+      btn.innerHTML = `🚀 Отправить файл (${file.name.substring(0, 18)}...)`;
+      btn.className = 'btn btn-file-ready';
+    }
+
     async function sendClip() {
+      if (selectedFile) {
+        await uploadFile();
+        return;
+      }
+
       const text = document.getElementById('inputText').value;
       if (!text.trim()) return;
 
@@ -152,8 +200,57 @@
       }
     }
 
-    // Загрузка списка сообщений
-    async function loadClips() {
+    async function uploadFile() {
+      const btn = document.getElementById('attachBtn');
+      btn.innerText = 'Загрузка файла...';
+
+      try {
+        // Убираем пробелы и кодируем русские буквы для URL
+        const safeName = selectedFile.name.replace(/\s+/g, '_');
+        const fileName = `${Date.now()}_${safeName}`;
+        const encodedFileName = encodeURIComponent(fileName);
+        
+        const uploadResponse = await fetch(`${SUPABASE_BASE_URL}/storage/v1/object/files/${encodedFileName}`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': selectedFile.type || 'application/octet-stream'
+          },
+          body: selectedFile
+        });
+
+        if (!uploadResponse.ok) {
+          const errText = await uploadResponse.text();
+          throw new Error(`Хранилище отклонило файл. Ошибка: ${errText}`);
+        }
+
+        const filePublicUrl = `${SUPABASE_BASE_URL}/storage/v1/object/public/files/${encodedFileName}`;
+        const fileContentMarker = `FILE:${selectedFile.name}||${filePublicUrl}`;
+
+        const dbResponse = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips`, {
+          method: 'POST',
+          headers: HEADERS,
+          body: JSON.stringify({ content: fileContentMarker })
+        });
+
+        if (!dbResponse.ok) throw new Error("Сбой привязки файла к базе.");
+
+        selectedFile = null;
+        document.getElementById('fileInput').value = '';
+        document.getElementById('inputText').value = ''; 
+        btn.innerHTML = '📎 Прикрепить файл';
+        btn.className = 'btn btn-attach';
+        
+        loadClips();
+      } catch (err) {
+        alert('СБОЙ ПРИ ОТПРАВКЕ ФАЙЛА:\n' + err.message + '\n\nВы выполнили SQL-скрипт в панели Supabase?');
+        btn.innerHTML = '📎 Прикрепить файл';
+        btn.className = 'btn btn-attach';
+      }
+    }
+
+    async function loadClips(isSilent = false) {
       if (isClearing) return;
 
       try {
@@ -172,14 +269,13 @@
 
         const data = await response.json();
 
-        // Автоочистка записей старше 6 часов
         const sixHoursAgo = Date.now() - (6 * 60 * 60 * 1000);
         const oldClips = data.filter(c => new Date(c.created_at).getTime() < sixHoursAgo);
         if (oldClips.length > 0) cleanOldData(oldClips);
 
         const validClips = data.filter(c => new Date(c.created_at).getTime() >= sixHoursAgo);
 
-        document.getElementById('status').innerText = '🟢 Подключено (v3.9)';
+        document.getElementById('status').innerText = '🟢 Подключено (v3.7)';
         document.getElementById('status').style.color = '#34c759';
 
         const list = document.getElementById('clipsList');
@@ -188,12 +284,24 @@
           return;
         }
 
-        list.innerHTML = validClips.map(c => `
-          <div class="card">
-            <div>${escapeHtml(c.content)}</div>
-            <button class="action-btn" onclick="copyText('${escapeHtml(c.content).replace(/'/g, "\\'")}')">Скопировать</button>
-          </div>
-        `).join('');
+        list.innerHTML = validClips.map(c => {
+          if (c.content && c.content.startsWith('FILE:')) {
+            const parts = c.content.replace('FILE:', '').split('||');
+            const fName = parts[0] || 'Файл';
+            const fUrl = parts[1] || '#';
+            return `
+              <div class="card">
+                <div>📁 <b>Файл:</b> ${escapeHtml(fName)}</div>
+                <a href="${fUrl}" target="_blank" download class="action-btn">📥 Скачать файл</a>
+              </div>`;
+          } else {
+            return `
+              <div class="card">
+                <div>${escapeHtml(c.content)}</div>
+                <button class="action-btn" onclick="copyText('${escapeHtml(c.content).replace(/'/g, "\\'")}')">Скопировать</button>
+              </div>`;
+          }
+        }).join('');
 
       } catch (err) {
         document.getElementById('status').innerText = '🔴 Сбой сети';
@@ -201,20 +309,38 @@
       }
     }
 
-    // Полная очистка истории
     async function clearAllHistory() {
       isClearing = true;
       const clearBtn = document.getElementById('clearBtn');
       clearBtn.innerText = 'Очистка...';
 
-      // Мгновенно убираем плашки с экрана
       document.getElementById('clipsList').innerHTML = '<p style="text-align:center; color:#8e8e93; margin-top:20px;">Буфер пуст</p>';
 
       try {
-        await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?id=gte.0`, {
-          method: 'DELETE',
-          headers: HEADERS
+        const response = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?select=id,content`, {
+          method: 'GET',
+          headers: { ...HEADERS, 'Cache-Control': 'no-store' },
+          cache: 'no-store'
         });
+        const allClips = await response.json();
+
+        for (const clip of allClips) {
+          await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?id=eq.${clip.id}`, { method: 'DELETE', headers: HEADERS });
+          
+          if (clip.content && clip.content.startsWith('FILE:')) {
+            const parts = clip.content.replace('FILE:', '').split('||');
+            const fUrl = parts[1];
+            if (fUrl) {
+              const fileStoragePath = fUrl.split('/files/')[1];
+              if (fileStoragePath) {
+                await fetch(`${SUPABASE_BASE_URL}/storage/v1/object/files/${fileStoragePath}`, {
+                  method: 'DELETE',
+                  headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                });
+              }
+            }
+          }
+        }
 
         clearBtn.innerText = 'Удалено ✔';
       } catch (err) {
