@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quick Clip v3.2</title>
+  <title>Quick Clip v3.3</title>
 
   <style>
     body { 
@@ -16,7 +16,6 @@
     
     h2 { color: #1c1c1e; text-align: center; margin-bottom: 15px; font-weight: 700; }
     
-    /* 3D стили для поля ввода */
     textarea { 
       width: 100%; 
       height: 120px; 
@@ -32,7 +31,6 @@
     }
     textarea:focus { border-color: #007aff; box-shadow: inset 0 2px 4px rgba(0,0,0,0.06), 0 0 0 3px rgba(0,122,255,0.2); }
     
-    /* 3D Кнопки */
     .btn { 
       width: 100%; 
       padding: 14px; 
@@ -49,7 +47,6 @@
       gap: 8px;
     }
     
-    /* Светлая контрастная кнопка прикрепления файла */
     .btn-attach { 
       background: linear-gradient(180deg, #ffffff 0%, #e5e5ea 100%); 
       color: #1c1c1e; 
@@ -58,7 +55,6 @@
     }
     .btn-attach:active { transform: translateY(2px); box-shadow: 0 1px 0 #b2b2b7; }
     
-    /* Фиолетовая кнопка готовности файла */
     .btn-file-ready { 
       background: linear-gradient(180deg, #6366f1 0%, #4f46e5 100%); 
       color: white; 
@@ -66,7 +62,6 @@
     }
     .btn-file-ready:active { transform: translateY(2px); box-shadow: 0 1px 0 #3730a3; }
 
-    /* Синяя кнопка отправки */
     .btn-primary { 
       background: linear-gradient(180deg, #007aff 0%, #0056b3 100%); 
       color: white; 
@@ -74,7 +69,6 @@
     }
     .btn-primary:active { transform: translateY(2px); box-shadow: 0 1px 0 #004085; }
 
-    /* Красная кнопка очистки */
     .btn-clear { 
       background: linear-gradient(180deg, #ff3b30 0%, #c62828 100%); 
       color: white; 
@@ -82,7 +76,6 @@
     }
     .btn-clear:active { transform: translateY(2px); box-shadow: 0 1px 0 #8e0000; }
     
-    /* Зелёная 3D кнопка скопировать/скачать */
     .action-btn { 
       background: linear-gradient(180deg, #34c759 0%, #248a3d 100%); 
       margin-top: 10px; 
@@ -102,7 +95,6 @@
     }
     .action-btn:active { transform: translateY(1px); box-shadow: 0 1px 0 #1b662d; }
 
-    /* 3D Карточка сообщения */
     .card { 
       background: #ffffff; 
       padding: 16px; 
@@ -124,18 +116,14 @@
   <h2>Quick Clip 📋</h2>
   <textarea id="inputText" placeholder="Вставьте текст или скопируйте отсюда..."></textarea>
   
-  <!-- Светлая 3D кнопка прикрепления файла -->
   <button id="attachBtn" class="btn btn-attach" onclick="triggerFileInput()">📎 Прикрепить файл</button>
   <input type="file" id="fileInput" onchange="handleFileSelect(event)">
 
-  <!-- Синяя 3D кнопка отправки -->
   <button id="sendBtn" class="btn btn-primary" onclick="sendClip()">Отправить в буфер</button>
-  
-  <!-- Красная 3D кнопка полной очистки истории -->
   <button id="clearBtn" class="btn btn-clear" onclick="clearAllHistory()">🗑 Очистить всю историю</button>
 
-  <div id="status">⏳ Подключение v3.2...</div>
-  <div id="version-tag">Версия v3.2 • 3D Design & Direct Attach</div>
+  <div id="status">⏳ Подключение v3.3...</div>
+  <div id="version-tag">Версия v3.3 • Safe Schema</div>
 
   <div id="clipsList"></div>
 
@@ -152,7 +140,6 @@
 
     let selectedFile = null;
 
-    // Прямой вызов выбора файлов iOS без выплывающих диалогов
     function triggerFileInput() {
       if (selectedFile) {
         selectedFile = null;
@@ -181,7 +168,7 @@
       btn.className = 'btn btn-file-ready';
     }
 
-    // Главная функция отправки
+    // 1. Отправка чистого текста
     async function sendClip() {
       if (selectedFile) {
         await uploadFile();
@@ -198,10 +185,13 @@
         const response = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips`, {
           method: 'POST',
           headers: HEADERS,
-          body: JSON.stringify({ content: text, is_file: false })
+          body: JSON.stringify({ content: text })
         });
 
-        if (!response.ok) throw new Error("Ошибка отправки текста");
+        if (!response.ok) {
+          const errBody = await response.text();
+          throw new Error(errBody || "Ошибка отправки текста");
+        }
 
         document.getElementById('inputText').value = '';
         btn.innerText = 'Отправлено ✔';
@@ -213,7 +203,7 @@
       }
     }
 
-    // Загрузка файла в Storage
+    // 2. Отправка файла с автоопределением структуры
     async function uploadFile() {
       const btn = document.getElementById('attachBtn');
       btn.innerText = 'Загрузка файла...';
@@ -231,18 +221,19 @@
           body: selectedFile
         });
 
-        if (!uploadResponse.ok) throw new Error("Ошибка загрузки. Проверьте Bucket 'files' в Supabase.");
+        if (!uploadResponse.ok) {
+          throw new Error("Не удалось загрузить файл в Storage. Убедитесь, что в Supabase создан публичный Bucket с именем 'files'.");
+        }
 
         const filePublicUrl = `${SUPABASE_BASE_URL}/storage/v1/object/public/files/${fileName}`;
+
+        // Формируем контент с префиксом FILE:
+        const fileContentMarker = `FILE:${selectedFile.name}||${filePublicUrl}`;
 
         await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips`, {
           method: 'POST',
           headers: HEADERS,
-          body: JSON.stringify({ 
-            content: filePublicUrl, 
-            file_name: selectedFile.name,
-            is_file: true 
-          })
+          body: JSON.stringify({ content: fileContentMarker })
         });
 
         selectedFile = null;
@@ -258,7 +249,7 @@
       }
     }
 
-    // Отрисовка записей и файлов
+    // 3. Загрузка данных
     async function loadClips(isSilent = false) {
       try {
         const response = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?select=*&order=created_at.desc`, {
@@ -277,7 +268,7 @@
 
         const validClips = data.filter(c => new Date(c.created_at).getTime() >= sixHoursAgo);
 
-        document.getElementById('status').innerText = '🟢 Подключено (v3.2)';
+        document.getElementById('status').innerText = '🟢 Подключено (v3.3)';
         document.getElementById('status').style.color = '#34c759';
 
         const list = document.getElementById('clipsList');
@@ -287,11 +278,14 @@
         }
 
         list.innerHTML = validClips.map(c => {
-          if (c.is_file) {
+          if (c.content && c.content.startsWith('FILE:')) {
+            const parts = c.content.replace('FILE:', '').split('||');
+            const fName = parts[0] || 'Файл';
+            const fUrl = parts[1] || '#';
             return `
               <div class="card">
-                <div>📁 <b>Файл:</b> ${escapeHtml(c.file_name || 'Документ')}</div>
-                <a href="${c.content}" target="_blank" download class="action-btn">📥 Скачать файл</a>
+                <div>📁 <b>Файл:</b> ${escapeHtml(fName)}</div>
+                <a href="${fUrl}" target="_blank" download class="action-btn">📥 Скачать файл</a>
               </div>`;
           } else {
             return `
@@ -308,7 +302,7 @@
       }
     }
 
-    // Ручная полная очистка базы данных и файлов
+    // 4. Очистка всей истории
     async function clearAllHistory() {
       if (!confirm("Вы уверены, что хотите удалить ВСЕ сообщения и файлы из буфера?")) return;
 
@@ -322,24 +316,26 @@
         });
         const allClips = await response.json();
 
-        // Удаление всех записей
         await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?id=gt.0`, {
           method: 'DELETE',
           headers: HEADERS
         });
 
-        // Очистка файлов из Storage
         for (const clip of allClips) {
-          if (clip.is_file && clip.content) {
-            const fileStoragePath = clip.content.split('/files/')[1];
-            if (fileStoragePath) {
-              await fetch(`${SUPABASE_BASE_URL}/storage/v1/object/files/${fileStoragePath}`, {
-                method: 'DELETE',
-                headers: {
-                  'apikey': SUPABASE_KEY,
-                  'Authorization': `Bearer ${SUPABASE_KEY}`
-                }
-              });
+          if (clip.content && clip.content.startsWith('FILE:')) {
+            const parts = clip.content.replace('FILE:', '').split('||');
+            const fUrl = parts[1];
+            if (fUrl) {
+              const fileStoragePath = fUrl.split('/files/')[1];
+              if (fileStoragePath) {
+                await fetch(`${SUPABASE_BASE_URL}/storage/v1/object/files/${fileStoragePath}`, {
+                  method: 'DELETE',
+                  headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_KEY}`
+                  }
+                });
+              }
             }
           }
         }
@@ -356,15 +352,6 @@
     async function cleanOldData(oldClips) {
       for (const clip of oldClips) {
         await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?id=eq.${clip.id}`, { method: 'DELETE', headers: HEADERS });
-        if (clip.is_file && clip.content) {
-          const fileStoragePath = clip.content.split('/files/')[1];
-          if (fileStoragePath) {
-            await fetch(`${SUPABASE_BASE_URL}/storage/v1/object/files/${fileStoragePath}`, {
-              method: 'DELETE',
-              headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-            });
-          }
-        }
       }
     }
 
