@@ -3,111 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quick Clip v3.7</title>
+  <title>Quick Clip v3.8</title>
 
   <style>
-    body { 
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-      max-width: 600px; 
-      margin: 0 auto; 
-      padding: 20px; 
-      background-color: #f2f2f7; 
-    }
-    
-    h2 { color: #1c1c1e; text-align: center; margin-bottom: 15px; font-weight: 700; }
-    
-    textarea { 
-      width: 100%; 
-      height: 120px; 
-      padding: 14px; 
-      border-radius: 12px; 
-      border: 1px solid #d1d1d6; 
-      box-sizing: border-box; 
-      font-size: 16px; 
-      background: #ffffff;
-      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06), 0 4px 10px rgba(0, 0, 0, 0.03);
-      outline: none;
-      transition: all 0.2s ease;
-    }
-    textarea:focus { border-color: #007aff; box-shadow: inset 0 2px 4px rgba(0,0,0,0.06), 0 0 0 3px rgba(0,122,255,0.2); }
-    
-    .btn { 
-      width: 100%; 
-      padding: 14px; 
-      margin-top: 12px; 
-      border: none; 
-      border-radius: 12px; 
-      font-size: 16px; 
-      font-weight: 600; 
-      cursor: pointer; 
-      transition: all 0.15s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-    
-    .btn-attach { 
-      background: linear-gradient(180deg, #ffffff 0%, #e5e5ea 100%); 
-      color: #1c1c1e; 
-      border: 1px solid #c7c7cc;
-      box-shadow: 0 3px 0 #b2b2b7, 0 4px 8px rgba(0,0,0,0.1);
-    }
-    .btn-attach:active { transform: translateY(2px); box-shadow: 0 1px 0 #b2b2b7; }
-    
-    .btn-file-ready { 
-      background: linear-gradient(180deg, #6366f1 0%, #4f46e5 100%); 
-      color: white; 
-      box-shadow: 0 3px 0 #3730a3, 0 4px 8px rgba(79,70,229,0.3);
-    }
-    .btn-file-ready:active { transform: translateY(2px); box-shadow: 0 1px 0 #3730a3; }
-
-    .btn-primary { 
-      background: linear-gradient(180deg, #007aff 0%, #0056b3 100%); 
-      color: white; 
-      box-shadow: 0 3px 0 #004085, 0 4px 8px rgba(0,122,255,0.3);
-    }
-    .btn-primary:active { transform: translateY(2px); box-shadow: 0 1px 0 #004085; }
-
-    .btn-clear { 
-      background: linear-gradient(180deg, #ff3b30 0%, #c62828 100%); 
-      color: white; 
-      box-shadow: 0 3px 0 #8e0000, 0 4px 8px rgba(255,59,48,0.25);
-    }
-    .btn-clear:active { transform: translateY(2px); box-shadow: 0 1px 0 #8e0000; }
-    
-    .action-btn { 
-      background: linear-gradient(180deg, #34c759 0%, #248a3d 100%); 
-      margin-top: 10px; 
-      padding: 10px; 
-      font-size: 15px; 
-      color: white; 
-      width: 100%; 
-      border: none; 
-      border-radius: 8px; 
-      font-weight: 600; 
-      cursor: pointer; 
-      box-shadow: 0 2px 0 #1b662d, 0 3px 6px rgba(52,199,89,0.2);
-      text-decoration: none;
-      display: block;
-      text-align: center;
-      box-sizing: border-box;
-    }
-    .action-btn:active { transform: translateY(1px); box-shadow: 0 1px 0 #1b662d; }
-
-    .card { 
-      background: #ffffff; 
-      padding: 16px; 
-      margin-top: 14px; 
-      border-radius: 12px; 
-      border: 1px solid #e5e5ea;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); 
-      word-break: break-all; 
-    }
-    
-    #status { font-size: 13px; color: #ff9f0a; text-align: center; margin-top: 14px; font-weight: 600; }
-    #version-tag { font-size: 11px; color: #8e8e93; text-align: center; margin-top: 4px; }
-    
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f2f2f7; }
+    textarea { width: 100%; height: 120px; padding: 14px; border-radius: 12px; border: 1px solid #d1d1d6; box-sizing: border-box; font-size: 16px; background: #ffffff; box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06); }
+    .btn { width: 100%; padding: 14px; margin-top: 12px; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn-attach { background: #e5e5ea; color: #1c1c1e; }
+    .btn-primary { background: #007aff; color: white; }
+    .btn-clear { background: #ff3b30; color: white; }
+    .btn-loading { background: #f0ad4e; color: white; }
+    .card { background: #ffffff; padding: 16px; margin-top: 14px; border-radius: 12px; border: 1px solid #e5e5ea; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .action-btn { background: #34c759; margin-top: 10px; padding: 10px; color: white; width: 100%; border: none; border-radius: 8px; cursor: pointer; }
     input[type="file"] { display: none; }
   </style>
 </head>
@@ -122,256 +29,104 @@
   <button id="sendBtn" class="btn btn-primary" onclick="sendClip()">Отправить в буфер</button>
   <button id="clearBtn" class="btn btn-clear" onclick="clearAllHistory()">🗑 Очистить всю историю</button>
 
-  <div id="status">⏳ Подключение v3.7...</div>
-  <div id="version-tag">Версия v3.7 • Cyrillic Fix & Storage Ready</div>
-
   <div id="clipsList"></div>
 
   <script>
     const SUPABASE_BASE_URL = 'https://vnzgdrqupislieaonpic.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_8I-2Kz4A1IdTy4KsJRKF_g_UnxIQ8MW';
-    
-    const HEADERS = {
-      'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation'
-    };
+    const HEADERS = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
 
     let selectedFile = null;
-    let isClearing = false;
 
     function triggerFileInput() {
       if (selectedFile) {
         selectedFile = null;
         document.getElementById('fileInput').value = '';
-        const btn = document.getElementById('attachBtn');
-        btn.innerHTML = '📎 Прикрепить файл';
-        btn.className = 'btn btn-attach';
+        document.getElementById('attachBtn').innerText = '📎 Прикрепить файл';
         return;
       }
       document.getElementById('fileInput').click();
     }
 
     function handleFileSelect(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      if (file.size > 15 * 1024 * 1024) {
-        alert("Файл слишком большой! Максимальный размер — 15 МБ.");
-        event.target.value = '';
-        return;
-      }
-
-      selectedFile = file;
-      const btn = document.getElementById('attachBtn');
-      btn.innerHTML = `🚀 Отправить файл (${file.name.substring(0, 18)}...)`;
-      btn.className = 'btn btn-file-ready';
+      selectedFile = event.target.files[0];
+      if (selectedFile) document.getElementById('attachBtn').innerText = '🚀 Отправить: ' + selectedFile.name;
     }
 
     async function sendClip() {
-      if (selectedFile) {
-        await uploadFile();
-        return;
-      }
-
+      if (selectedFile) return await uploadFile();
       const text = document.getElementById('inputText').value;
       if (!text.trim()) return;
 
       const btn = document.getElementById('sendBtn');
       btn.innerText = 'Отправка...';
-
+      
       try {
-        const response = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips`, {
-          method: 'POST',
-          headers: HEADERS,
-          body: JSON.stringify({ content: text })
+        await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips`, {
+          method: 'POST', headers: HEADERS, body: JSON.stringify({ content: text })
         });
-
-        if (!response.ok) throw new Error("Ошибка отправки текста");
-
         document.getElementById('inputText').value = '';
         btn.innerText = 'Отправлено ✔';
         setTimeout(() => { btn.innerText = 'Отправить в буфер'; }, 2000);
         loadClips();
-      } catch (err) {
-        alert('Ошибка: ' + err.message);
-        btn.innerText = 'Отправить в буфер';
-      }
+      } catch (e) { alert('Ошибка текста: ' + e.message); btn.innerText = 'Отправить в буфер'; }
     }
 
     async function uploadFile() {
       const btn = document.getElementById('attachBtn');
-      btn.innerText = 'Загрузка файла...';
+      btn.innerText = 'Загрузка...';
+      btn.className = 'btn btn-loading';
 
       try {
-        // Убираем пробелы и кодируем русские буквы для URL
-        const safeName = selectedFile.name.replace(/\s+/g, '_');
-        const fileName = `${Date.now()}_${safeName}`;
-        const encodedFileName = encodeURIComponent(fileName);
-        
-        const uploadResponse = await fetch(`${SUPABASE_BASE_URL}/storage/v1/object/files/${encodedFileName}`, {
+        const path = `${Date.now()}_${selectedFile.name.replace(/\s+/g, '_')}`;
+        const res = await fetch(`${SUPABASE_BASE_URL}/storage/v1/object/files/${path}`, {
           method: 'POST',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': selectedFile.type || 'application/octet-stream'
-          },
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': selectedFile.type },
           body: selectedFile
         });
 
-        if (!uploadResponse.ok) {
-          const errText = await uploadResponse.text();
-          throw new Error(`Хранилище отклонило файл. Ошибка: ${errText}`);
-        }
+        if (!res.ok) throw new Error('Storage Error: ' + await res.text());
 
-        const filePublicUrl = `${SUPABASE_BASE_URL}/storage/v1/object/public/files/${encodedFileName}`;
-        const fileContentMarker = `FILE:${selectedFile.name}||${filePublicUrl}`;
-
-        const dbResponse = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips`, {
-          method: 'POST',
-          headers: HEADERS,
-          body: JSON.stringify({ content: fileContentMarker })
+        await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips`, {
+          method: 'POST', headers: HEADERS,
+          body: JSON.stringify({ content: `FILE:${selectedFile.name}||${SUPABASE_BASE_URL}/storage/v1/object/public/files/${path}` })
         });
 
-        if (!dbResponse.ok) throw new Error("Сбой привязки файла к базе.");
-
         selectedFile = null;
-        document.getElementById('fileInput').value = '';
-        document.getElementById('inputText').value = ''; 
-        btn.innerHTML = '📎 Прикрепить файл';
+        btn.innerText = '📎 Прикрепить файл';
         btn.className = 'btn btn-attach';
-        
         loadClips();
-      } catch (err) {
-        alert('СБОЙ ПРИ ОТПРАВКЕ ФАЙЛА:\n' + err.message + '\n\nВы выполнили SQL-скрипт в панели Supabase?');
-        btn.innerHTML = '📎 Прикрепить файл';
-        btn.className = 'btn btn-attach';
+      } catch (e) { 
+        btn.innerText = 'ОШИБКА: ' + e.message;
+        setTimeout(() => { btn.innerText = '📎 Прикрепить файл'; btn.className = 'btn btn-attach'; }, 3000);
       }
     }
 
-    async function loadClips(isSilent = false) {
-      if (isClearing) return;
-
-      try {
-        const response = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?select=*&order=created_at.desc`, {
-          method: 'GET',
-          headers: {
-            ...HEADERS,
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0'
-          },
-          cache: 'no-store'
-        });
-
-        if (!response.ok) throw new Error("Ошибка связи с БД");
-
-        const data = await response.json();
-
-        const sixHoursAgo = Date.now() - (6 * 60 * 60 * 1000);
-        const oldClips = data.filter(c => new Date(c.created_at).getTime() < sixHoursAgo);
-        if (oldClips.length > 0) cleanOldData(oldClips);
-
-        const validClips = data.filter(c => new Date(c.created_at).getTime() >= sixHoursAgo);
-
-        document.getElementById('status').innerText = '🟢 Подключено (v3.7)';
-        document.getElementById('status').style.color = '#34c759';
-
-        const list = document.getElementById('clipsList');
-        if (!validClips || validClips.length === 0) {
-          list.innerHTML = '<p style="text-align:center; color:#8e8e93; margin-top:20px;">Буфер пуст</p>';
-          return;
-        }
-
-        list.innerHTML = validClips.map(c => {
-          if (c.content && c.content.startsWith('FILE:')) {
-            const parts = c.content.replace('FILE:', '').split('||');
-            const fName = parts[0] || 'Файл';
-            const fUrl = parts[1] || '#';
-            return `
-              <div class="card">
-                <div>📁 <b>Файл:</b> ${escapeHtml(fName)}</div>
-                <a href="${fUrl}" target="_blank" download class="action-btn">📥 Скачать файл</a>
-              </div>`;
-          } else {
-            return `
-              <div class="card">
-                <div>${escapeHtml(c.content)}</div>
-                <button class="action-btn" onclick="copyText('${escapeHtml(c.content).replace(/'/g, "\\'")}')">Скопировать</button>
-              </div>`;
-          }
-        }).join('');
-
-      } catch (err) {
-        document.getElementById('status').innerText = '🔴 Сбой сети';
-        document.getElementById('status').style.color = '#ff3b30';
-      }
+    async function loadClips() {
+      const res = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?select=*&order=created_at.desc`, { headers: { ...HEADERS, 'Cache-Control': 'no-cache' } });
+      const data = await res.json();
+      const list = document.getElementById('clipsList');
+      list.innerHTML = data.map(c => c.content.startsWith('FILE:') ? 
+        `<div class="card"><div>📁 ${c.content.split('||')[0].replace('FILE:','')}</div><a href="${c.content.split('||')[1]}" target="_blank" class="action-btn">📥 Скачать</a></div>` :
+        `<div class="card"><div>${c.content}</div><button class="action-btn" onclick="navigator.clipboard.writeText('${c.content.replace(/'/g, "\\'")}')">Скопировать</button></div>`
+      ).join('');
     }
 
     async function clearAllHistory() {
-      isClearing = true;
-      const clearBtn = document.getElementById('clearBtn');
-      clearBtn.innerText = 'Очистка...';
-
-      document.getElementById('clipsList').innerHTML = '<p style="text-align:center; color:#8e8e93; margin-top:20px;">Буфер пуст</p>';
-
-      try {
-        const response = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?select=id,content`, {
-          method: 'GET',
-          headers: { ...HEADERS, 'Cache-Control': 'no-store' },
-          cache: 'no-store'
-        });
-        const allClips = await response.json();
-
-        for (const clip of allClips) {
-          await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?id=eq.${clip.id}`, { method: 'DELETE', headers: HEADERS });
-          
-          if (clip.content && clip.content.startsWith('FILE:')) {
-            const parts = clip.content.replace('FILE:', '').split('||');
-            const fUrl = parts[1];
-            if (fUrl) {
-              const fileStoragePath = fUrl.split('/files/')[1];
-              if (fileStoragePath) {
-                await fetch(`${SUPABASE_BASE_URL}/storage/v1/object/files/${fileStoragePath}`, {
-                  method: 'DELETE',
-                  headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-                });
-              }
-            }
-          }
+      const res = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?select=*`, { headers: HEADERS });
+      const data = await res.json();
+      for (const c of data) {
+        await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?id=eq.${c.id}`, { method: 'DELETE', headers: HEADERS });
+        if (c.content.startsWith('FILE:')) {
+          const path = c.content.split('/files/')[1];
+          await fetch(`${SUPABASE_BASE_URL}/storage/v1/object/files/${path}`, { method: 'DELETE', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } });
         }
-
-        clearBtn.innerText = 'Удалено ✔';
-      } catch (err) {
-        alert("Произошел сбой при очистке.");
-      } finally {
-        setTimeout(() => { clearBtn.innerText = '🗑 Очистить всю историю'; }, 2000);
-        isClearing = false;
-        loadClips(); 
       }
+      loadClips();
     }
 
-    async function cleanOldData(oldClips) {
-      for (const clip of oldClips) {
-        await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?id=eq.${clip.id}`, { method: 'DELETE', headers: HEADERS });
-      }
-    }
-
-    function copyText(text) {
-      navigator.clipboard.writeText(text).then(() => {
-        alert('Скопировано в буфер!');
-      }).catch(err => alert('Ошибка копирования'));
-    }
-
-    function escapeHtml(text) {
-      if (!text) return '';
-      return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    }
-
+    setInterval(loadClips, 3000);
     loadClips();
-    setInterval(() => loadClips(true), 3000);
-
   </script>
 </body>
 </html>
