@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quick Clip v3.4</title>
+  <title>Quick Clip v3.5</title>
 
   <style>
     body { 
@@ -122,8 +122,8 @@
   <button id="sendBtn" class="btn btn-primary" onclick="sendClip()">Отправить в буфер</button>
   <button id="clearBtn" class="btn btn-clear" onclick="clearAllHistory()">🗑 Очистить всю историю</button>
 
-  <div id="status">⏳ Подключение v3.4...</div>
-  <div id="version-tag">Версия v3.4 • Fast Sync & Auto Wipe</div>
+  <div id="status">⏳ Подключение v3.5...</div>
+  <div id="version-tag">Версия v3.5 • Cache Busting & Lock</div>
 
   <div id="clipsList"></div>
 
@@ -139,6 +139,7 @@
     };
 
     let selectedFile = null;
+    let isClearing = false; // Флаг блокировки таймера
 
     function triggerFileInput() {
       if (selectedFile) {
@@ -187,10 +188,7 @@
           body: JSON.stringify({ content: text })
         });
 
-        if (!response.ok) {
-          const errBody = await response.text();
-          throw new Error(errBody || "Ошибка отправки текста");
-        }
+        if (!response.ok) throw new Error("Ошибка отправки текста");
 
         document.getElementById('inputText').value = '';
         btn.innerText = 'Отправлено ✔';
@@ -234,8 +232,10 @@
 
         if (!dbResponse.ok) throw new Error("Сбой привязки файла к базе.");
 
+        // Очищаем форму
         selectedFile = null;
         document.getElementById('fileInput').value = '';
+        document.getElementById('inputText').value = ''; 
         btn.innerHTML = '📎 Прикрепить файл';
         btn.className = 'btn btn-attach';
         
@@ -248,12 +248,16 @@
     }
 
     async function loadClips(isSilent = false) {
+      // Если идет процесс очистки — блокируем загрузку
+      if (isClearing) return;
+
       try {
-        // Жесткая блокировка кэша Safari, чтобы файлы появлялись мгновенно
-        const response = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?select=*&order=created_at.desc`, {
+        // Убийца кэша Safari: добавляем параметр ?t=... с текущим временем
+        const url = `${SUPABASE_BASE_URL}/rest/v1/clips?select=*&order=created_at.desc&t=${Date.now()}`;
+        
+        const response = await fetch(url, {
           method: 'GET',
-          headers: { ...HEADERS, 'Cache-Control': 'no-store' },
-          cache: 'no-store'
+          headers: HEADERS
         });
 
         if (!response.ok) throw new Error("Ошибка связи с БД");
@@ -266,7 +270,7 @@
 
         const validClips = data.filter(c => new Date(c.created_at).getTime() >= sixHoursAgo);
 
-        document.getElementById('status').innerText = '🟢 Подключено (v3.4)';
+        document.getElementById('status').innerText = '🟢 Подключено (v3.5)';
         document.getElementById('status').style.color = '#34c759';
 
         const list = document.getElementById('clipsList');
@@ -301,30 +305,24 @@
     }
 
     async function clearAllHistory() {
-      // 1. Убрали диалоговое окно confirm()
+      // 1. Блокируем таймер
+      isClearing = true;
+      
       const clearBtn = document.getElementById('clearBtn');
       clearBtn.innerText = 'Очистка...';
 
-      // 2. Мгновенно стираем все плашки с экрана, не дожидаясь ответа сервера
+      // 2. Мгновенно стираем плашки с экрана
       document.getElementById('clipsList').innerHTML = '<p style="text-align:center; color:#8e8e93; margin-top:20px;">Буфер пуст</p>';
 
       try {
-        // 3. Скачиваем текущий список для удаления файлов из хранилища
-        const response = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?select=*`, {
-          method: 'GET',
-          headers: { ...HEADERS, 'Cache-Control': 'no-store' },
-          cache: 'no-store'
-        });
+        const url = `${SUPABASE_BASE_URL}/rest/v1/clips?select=id,content&t=${Date.now()}`;
+        const response = await fetch(url, { method: 'GET', headers: HEADERS });
         const allClips = await response.json();
 
-        // 4. Очищаем базу данных
-        await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?id=gte.0`, {
-          method: 'DELETE',
-          headers: HEADERS
-        });
-
-        // 5. Очищаем физические файлы в фоне
+        // 3. Точечное удаление каждой записи (самый надежный способ)
         for (const clip of allClips) {
+          await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?id=eq.${clip.id}`, { method: 'DELETE', headers: HEADERS });
+          
           if (clip.content && clip.content.startsWith('FILE:')) {
             const parts = clip.content.replace('FILE:', '').split('||');
             const fUrl = parts[1];
@@ -333,10 +331,7 @@
               if (fileStoragePath) {
                 await fetch(`${SUPABASE_BASE_URL}/storage/v1/object/files/${fileStoragePath}`, {
                   method: 'DELETE',
-                  headers: {
-                    'apikey': SUPABASE_KEY,
-                    'Authorization': `Bearer ${SUPABASE_KEY}`
-                  }
+                  headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
                 });
               }
             }
@@ -344,12 +339,13 @@
         }
 
         clearBtn.innerText = 'Удалено ✔';
-        setTimeout(() => { clearBtn.innerText = '🗑 Очистить всю историю'; }, 2000);
       } catch (err) {
-        // Если произошел сбой интернета во время фоновой очистки
-        alert("Не удалось полностью очистить базу в фоне. Попробуйте еще раз.");
-        clearBtn.innerText = '🗑 Очистить всю историю';
-        loadClips(); // Возвращаем плашки обратно, если удаление сорвалось
+        alert("Произошел сбой при очистке.");
+      } finally {
+        // Снимаем блокировку и возвращаем кнопку
+        setTimeout(() => { clearBtn.innerText = '🗑 Очистить всю историю'; }, 2000);
+        isClearing = false;
+        loadClips(); // Финальное обновление
       }
     }
 
