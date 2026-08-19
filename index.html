@@ -3,66 +3,54 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quick Clip v3.0 (Pure API)</title>
+  <title>Quick Clip v3.1</title>
 
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f4f4f9; }
-    h2 { color: #333; text-align: center; margin-bottom: 5px; }
+    h2 { color: #333; text-align: center; margin-bottom: 15px; }
     textarea { width: 100%; height: 120px; padding: 12px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; font-size: 16px; }
-    button { width: 100%; padding: 14px; margin-top: 10px; border: none; border-radius: 8px; background: #007aff; color: white; font-size: 16px; font-weight: bold; cursor: pointer; }
-    button:active { opacity: 0.8; }
-    .copy-btn { background: #34c759; margin-top: 8px; padding: 8px; font-size: 14px; color: white; }
+    
+    .btn { width: 100%; padding: 14px; margin-top: 10px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+    .btn-primary { background: #007aff; color: white; }
+    .btn-secondary { background: #8e8e93; color: white; }
+    .btn-file-ready { background: #5856d6; color: white; }
+    .btn:active { opacity: 0.8; }
+    
+    .copy-btn { background: #34c759; margin-top: 8px; padding: 8px; font-size: 14px; color: white; width: 100%; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
     .card { background: white; padding: 15px; margin-top: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); word-break: break-all; }
-    #status { font-size: 13px; color: #ff9f0a; text-align: center; margin-top: 10px; font-weight: bold; }
+    .file-link { display: inline-block; margin-top: 5px; color: #007aff; font-weight: bold; text-decoration: none; }
+    
+    #status { font-size: 13px; color: #ff9f0a; text-align: center; margin-top: 12px; font-weight: bold; }
     #version-tag { font-size: 11px; color: #8e8e93; text-align: center; margin-top: 4px; }
     
-    .debug-box { margin-top: 25px; padding: 12px; background: #1c1c1e; color: #30d158; font-family: monospace; font-size: 11px; border-radius: 8px; max-height: 250px; overflow-y: auto; border: 1px solid #3a3a3c; }
-    .debug-title { color: #ffd60a; font-weight: bold; margin-bottom: 6px; display: flex; justify-content: space-between; }
-    .log-err { color: #ff453a; margin-bottom: 4px;}
-    .log-warn { color: #ff9f0a; margin-bottom: 4px;}
-    .log-info { color: #64d2ff; margin-bottom: 4px;}
+    /* Скрытые элементы выбора файлов */
+    input[type="file"] { display: none; }
   </style>
 </head>
 <body>
+
   <h2>Quick Clip 📋</h2>
   <textarea id="inputText" placeholder="Вставьте текст или скопируйте отсюда..."></textarea>
-  <button id="sendBtn" onclick="sendClip()">Отправить в буфер</button>
   
-  <div id="status">⏳ Подключение v3.0...</div>
-  <div id="version-tag">Версия v3.0 (Без библиотек)</div>
+  <!-- Кнопка прикрепления файлов -->
+  <button id="attachBtn" class="btn btn-secondary" onclick="openFileMenu()">📎 Прикрепить файл</button>
+  
+  <!-- Скрытые инпуты для вызова iOS диалогов -->
+  <input type="file" id="fileDocs" onchange="handleFileSelect(event)">
+  <input type="file" id="fileMedia" accept="image/*,video/*" onchange="handleFileSelect(event)">
+
+  <!-- Кнопка отправки текста -->
+  <button id="sendBtn" class="btn btn-primary" onclick="sendClip()">Отправить в буфер</button>
+  
+  <div id="status">⏳ Подключение v3.1...</div>
+  <div id="version-tag">Версия v3.1 • Автоочистка 6ч</div>
 
   <div id="clipsList"></div>
 
-  <div class="debug-box">
-    <div class="debug-title">
-      <span>🛠 ТЕСТИРОВЩИК v3.0 (Native)</span>
-      <span style="cursor:pointer; color:#8e8e93;" onclick="clearLogs()">[Очистить]</span>
-    </div>
-    <div id="debugLogs"></div>
-  </div>
-
   <script>
-    function log(msg, type = 'normal') {
-      const time = new Date().toLocaleTimeString();
-      const logsBox = document.getElementById('debugLogs');
-      if (!logsBox) return;
-      let cls = '';
-      if (type === 'err') cls = 'class="log-err"';
-      if (type === 'warn') cls = 'class="log-warn"';
-      if (type === 'info') cls = 'class="log-info"';
-      logsBox.innerHTML += `<div ${cls}>[${time}] ${msg}</div>`;
-      logsBox.scrollTop = logsBox.scrollHeight;
-    }
-
-    function clearLogs() {
-      document.getElementById('debugLogs').innerHTML = '';
-    }
-
-    log('🚀 Запуск v3.0: Чистый нативный код без CDN', 'info');
-
-    // Настройки Supabase
-    const SUPABASE_URL = 'https://vnzgdrqupislieaonpic.supabase.co/rest/v1/clips';
+    const SUPABASE_BASE_URL = 'https://vnzgdrqupislieaonpic.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_8I-2Kz4A1IdTy4KsJRKF_g_UnxIQ8MW';
+    
     const HEADERS = {
       'apikey': SUPABASE_KEY,
       'Authorization': `Bearer ${SUPABASE_KEY}`,
@@ -70,90 +58,209 @@
       'Prefer': 'return=representation'
     };
 
-    // Загрузка данных через встроенный fetch
-    async function loadClips(isSilent = false) {
-      if (!isSilent) log('--- ЗАГРУЗКА ДАННЫХ ---', 'info');
-      const list = document.getElementById('clipsList');
-      
+    let selectedFile = null;
+
+    // 1. Выбор источника файла
+    function openFileMenu() {
+      if (selectedFile) {
+        // Если файл уже выбран — повторный клик сбрасывает его
+        selectedFile = null;
+        const btn = document.getElementById('attachBtn');
+        btn.innerText = '📎 Прикрепить файл';
+        btn.className = 'btn btn-secondary';
+        return;
+      }
+
+      const choice = confirm("Нажмите 'ОК' для выбора из Файлов/Документов\nНажмите 'Отмена' для выбора из Фотопленки/Медиатеки");
+      if (choice) {
+        document.getElementById('fileDocs').click();
+      } else {
+        document.getElementById('fileMedia').click();
+      }
+    }
+
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      // Проверка лимита 15 МБ
+      if (file.size > 15 * 1024 * 1024) {
+        alert("Файл слишком большой! Максимальный размер — 15 МБ.");
+        event.target.value = '';
+        return;
+      }
+
+      selectedFile = file;
+      const btn = document.getElementById('attachBtn');
+      btn.innerText = `🚀 Отправить файл (${file.name.substring(0, 20)}...)`;
+      btn.className = 'btn btn-file-ready';
+    }
+
+    // 2. Отправка (Текст или Файл)
+    async function sendClip() {
+      // Если прикреплен файл
+      if (selectedFile) {
+        await uploadFile();
+        return;
+      }
+
+      // Отправка обычного текста
+      const text = document.getElementById('inputText').value;
+      if (!text.trim()) return;
+
+      const btn = document.getElementById('sendBtn');
+      btn.innerText = 'Отправка...';
+
       try {
-        const response = await fetch(`${SUPABASE_URL}?select=*&order=created_at.desc`, {
+        const response = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips`, {
+          method: 'POST',
+          headers: HEADERS,
+          body: JSON.stringify({ content: text, is_file: false })
+        });
+
+        if (!response.ok) throw new Error("Ошибка отправки текста");
+
+        document.getElementById('inputText').value = '';
+        btn.innerText = 'Отправлено ✔';
+        setTimeout(() => { btn.innerText = 'Отправить в буфер'; }, 2000);
+        loadClips();
+      } catch (err) {
+        alert('Ошибка: ' + err.message);
+        btn.innerText = 'Отправить в буфер';
+      }
+    }
+
+    // 3. Загрузка файла в Supabase Storage
+    async function uploadFile() {
+      const btn = document.getElementById('attachBtn');
+      btn.innerText = 'Загрузка файла...';
+
+      try {
+        const fileName = `${Date.now()}_${selectedFile.name}`;
+        
+        // Загрузка бинарных данных в Bucket 'files'
+        const uploadResponse = await fetch(`${SUPABASE_BASE_URL}/storage/v1/object/files/${fileName}`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': selectedFile.type || 'application/octet-stream'
+          },
+          body: selectedFile
+        });
+
+        if (!uploadResponse.ok) throw new Error("Ошибка загрузки в хранилище Storage. Проверьте, создан ли Bucket 'files'.");
+
+        const filePublicUrl = `${SUPABASE_BASE_URL}/storage/v1/object/public/files/${fileName}`;
+
+        // Фиксация записи о файле в таблице clips
+        await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips`, {
+          method: 'POST',
+          headers: HEADERS,
+          body: JSON.stringify({ 
+            content: filePublicUrl, 
+            file_name: selectedFile.name,
+            is_file: true 
+          })
+        });
+
+        selectedFile = null;
+        document.getElementById('fileDocs').value = '';
+        document.getElementById('fileMedia').value = '';
+        btn.innerText = '📎 Прикрепить файл';
+        btn.className = 'btn btn-secondary';
+        
+        loadClips();
+      } catch (err) {
+        alert('Ошибка файла: ' + err.message);
+        btn.innerText = '📎 Прикрепить файл';
+        btn.className = 'btn btn-secondary';
+      }
+    }
+
+    // 4. Загрузка списка + Автоматическая очистка старых данных (6 часов)
+    async function loadClips(isSilent = false) {
+      try {
+        const response = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?select=*&order=created_at.desc`, {
           method: 'GET',
           headers: HEADERS
         });
 
-        if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.message || response.statusText);
-        }
+        if (!response.ok) throw new Error("Ошибка связи с БД");
 
         const data = await response.json();
         
-        document.getElementById('status').innerText = '🟢 Готово к работе (Нативный режим)';
-        document.getElementById('status').style.color = '#34c759';
+        // Автоочистка записей старше 6 часов (6 * 3600 * 1000 мс)
+        const sixHoursAgo = Date.now() - (6 * 60 * 60 * 1000);
+        const oldClips = data.filter(c => new Date(c.created_at).getTime() < sixHoursAgo);
         
-        if (!data || data.length === 0) {
-          if (!isSilent) log('⚠️ Буфер пуст.', 'warn');
+        if (oldClips.length > 0) {
+          cleanOldData(oldClips);
+        }
+
+        const validClips = data.filter(c => new Date(c.created_at).getTime() >= sixHoursAgo);
+
+        document.getElementById('status').innerText = '🟢 Подключено (v3.1)';
+        document.getElementById('status').style.color = '#34c759';
+
+        const list = document.getElementById('clipsList');
+        if (!validClips || validClips.length === 0) {
           list.innerHTML = '<p style="text-align:center; color:#999; margin-top:20px;">Буфер пуст</p>';
           return;
         }
-        
-        if (!isSilent) log(`✅ Успешно загружено записей: ${data.length}`, 'info');
-        list.innerHTML = data.map(c => `
-          <div class="card">
-            <div>${escapeHtml(c.content)}</div>
-            <button class="copy-btn" onclick="copyText('${escapeHtml(c.content).replace(/'/g, "\\'")}')">Скопировать</button>
-          </div>
-        `).join('');
+
+        list.innerHTML = validClips.map(c => {
+          if (c.is_file) {
+            return `
+              <div class="card">
+                <div>📁 <b>Файл:</b> ${escapeHtml(c.file_name || 'Документ')}</div>
+                <a href="${c.content}" target="_blank" class="file-link">Открыть / Скачать</a>
+                <button class="copy-btn" onclick="copyText('${c.content}')">Скопировать ссылку</button>
+              </div>`;
+          } else {
+            return `
+              <div class="card">
+                <div>${escapeHtml(c.content)}</div>
+                <button class="copy-btn" onclick="copyText('${escapeHtml(c.content).replace(/'/g, "\\'")}')">Скопировать</button>
+              </div>`;
+          }
+        }).join('');
+
       } catch (err) {
-        log('❌ ОШИБКА FETCH: ' + err.message, 'err');
-        document.getElementById('status').innerText = '🔴 Ошибка связи';
+        document.getElementById('status').innerText = '🔴 Сбой сети';
         document.getElementById('status').style.color = '#ff3b30';
       }
     }
 
-    // Отправка данных через встроенный fetch
-    async function sendClip() {
-      const btn = document.getElementById('sendBtn');
-      const text = document.getElementById('inputText').value;
-      if (!text.trim()) return;
-
-      btn.innerText = 'Отправка...';
-      log('--- ОТПРАВКА ДАННЫХ ---', 'info');
-
-      try {
-        const response = await fetch(SUPABASE_URL, {
-          method: 'POST',
-          headers: HEADERS,
-          body: JSON.stringify({ content: text })
+    // 5. Функция физического удаления устаревших записей и файлов
+    async function cleanOldData(oldClips) {
+      for (const clip of oldClips) {
+        // Удаляем из таблицы
+        await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?id=eq.${clip.id}`, {
+          method: 'DELETE',
+          headers: HEADERS
         });
 
-        if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.message || response.statusText);
+        // Если это файл, удаляем его из Storage
+        if (clip.is_file && clip.content) {
+          const fileStoragePath = clip.content.split('/files/')[1];
+          if (fileStoragePath) {
+            await fetch(`${SUPABASE_BASE_URL}/storage/v1/object/files/${fileStoragePath}`, {
+              method: 'DELETE',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`
+              }
+            });
+          }
         }
-
-        log('✅ Текст сохранен на сервере!', 'info');
-        document.getElementById('inputText').value = '';
-        btn.innerText = 'Отправлено ✔';
-        btn.style.background = '#34c759';
-        setTimeout(() => {
-          btn.innerText = 'Отправить в буфер';
-          btn.style.background = '#007aff';
-        }, 2000);
-        
-        loadClips();
-      } catch (err) {
-        log('❌ СБОЙ ОТПРАВКИ: ' + err.message, 'err');
-        btn.innerText = 'Ошибка';
-        btn.style.background = '#ff3b30';
       }
     }
 
     function copyText(text) {
       navigator.clipboard.writeText(text).then(() => {
-        log('📋 Текст скопирован!', 'info');
         alert('Скопировано в буфер!');
-      }).catch(err => log('❌ Ошибка копирования: ' + err, 'err'));
+      }).catch(err => alert('Ошибка копирования'));
     }
 
     function escapeHtml(text) {
@@ -161,10 +268,8 @@
       return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
-    // Первичная загрузка
+    // Стартовый запуск + обновление каждые 3 секунды
     loadClips();
-
-    // Замена Realtime: тихая проверка базы каждые 3 секунды
     setInterval(() => loadClips(true), 3000);
 
   </script>
