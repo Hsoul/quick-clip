@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quick Clip v3.3</title>
+  <title>Quick Clip v3.4</title>
 
   <style>
     body { 
@@ -122,8 +122,8 @@
   <button id="sendBtn" class="btn btn-primary" onclick="sendClip()">Отправить в буфер</button>
   <button id="clearBtn" class="btn btn-clear" onclick="clearAllHistory()">🗑 Очистить всю историю</button>
 
-  <div id="status">⏳ Подключение v3.3...</div>
-  <div id="version-tag">Версия v3.3 • Safe Schema</div>
+  <div id="status">⏳ Подключение v3.4...</div>
+  <div id="version-tag">Версия v3.4 • Fast Sync & Auto Wipe</div>
 
   <div id="clipsList"></div>
 
@@ -168,7 +168,6 @@
       btn.className = 'btn btn-file-ready';
     }
 
-    // 1. Отправка чистого текста
     async function sendClip() {
       if (selectedFile) {
         await uploadFile();
@@ -203,7 +202,6 @@
       }
     }
 
-    // 2. Отправка файла с автоопределением структуры
     async function uploadFile() {
       const btn = document.getElementById('attachBtn');
       btn.innerText = 'Загрузка файла...';
@@ -222,19 +220,19 @@
         });
 
         if (!uploadResponse.ok) {
-          throw new Error("Не удалось загрузить файл в Storage. Убедитесь, что в Supabase создан публичный Bucket с именем 'files'.");
+          throw new Error("Сбой загрузки Storage. Убедитесь, что Bucket 'files' публичный и принимает файлы.");
         }
 
         const filePublicUrl = `${SUPABASE_BASE_URL}/storage/v1/object/public/files/${fileName}`;
-
-        // Формируем контент с префиксом FILE:
         const fileContentMarker = `FILE:${selectedFile.name}||${filePublicUrl}`;
 
-        await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips`, {
+        const dbResponse = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips`, {
           method: 'POST',
           headers: HEADERS,
           body: JSON.stringify({ content: fileContentMarker })
         });
+
+        if (!dbResponse.ok) throw new Error("Сбой привязки файла к базе.");
 
         selectedFile = null;
         document.getElementById('fileInput').value = '';
@@ -249,26 +247,26 @@
       }
     }
 
-    // 3. Загрузка данных
     async function loadClips(isSilent = false) {
       try {
+        // Жесткая блокировка кэша Safari, чтобы файлы появлялись мгновенно
         const response = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?select=*&order=created_at.desc`, {
           method: 'GET',
-          headers: HEADERS
+          headers: { ...HEADERS, 'Cache-Control': 'no-store' },
+          cache: 'no-store'
         });
 
         if (!response.ok) throw new Error("Ошибка связи с БД");
 
         const data = await response.json();
 
-        // Автоочистка старше 6 часов
         const sixHoursAgo = Date.now() - (6 * 60 * 60 * 1000);
         const oldClips = data.filter(c => new Date(c.created_at).getTime() < sixHoursAgo);
         if (oldClips.length > 0) cleanOldData(oldClips);
 
         const validClips = data.filter(c => new Date(c.created_at).getTime() >= sixHoursAgo);
 
-        document.getElementById('status').innerText = '🟢 Подключено (v3.3)';
+        document.getElementById('status').innerText = '🟢 Подключено (v3.4)';
         document.getElementById('status').style.color = '#34c759';
 
         const list = document.getElementById('clipsList');
@@ -302,25 +300,30 @@
       }
     }
 
-    // 4. Очистка всей истории
     async function clearAllHistory() {
-      if (!confirm("Вы уверены, что хотите удалить ВСЕ сообщения и файлы из буфера?")) return;
-
+      // 1. Убрали диалоговое окно confirm()
       const clearBtn = document.getElementById('clearBtn');
       clearBtn.innerText = 'Очистка...';
 
+      // 2. Мгновенно стираем все плашки с экрана, не дожидаясь ответа сервера
+      document.getElementById('clipsList').innerHTML = '<p style="text-align:center; color:#8e8e93; margin-top:20px;">Буфер пуст</p>';
+
       try {
+        // 3. Скачиваем текущий список для удаления файлов из хранилища
         const response = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?select=*`, {
           method: 'GET',
-          headers: HEADERS
+          headers: { ...HEADERS, 'Cache-Control': 'no-store' },
+          cache: 'no-store'
         });
         const allClips = await response.json();
 
-        await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?id=gt.0`, {
+        // 4. Очищаем базу данных
+        await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?id=gte.0`, {
           method: 'DELETE',
           headers: HEADERS
         });
 
+        // 5. Очищаем физические файлы в фоне
         for (const clip of allClips) {
           if (clip.content && clip.content.startsWith('FILE:')) {
             const parts = clip.content.replace('FILE:', '').split('||');
@@ -342,10 +345,11 @@
 
         clearBtn.innerText = 'Удалено ✔';
         setTimeout(() => { clearBtn.innerText = '🗑 Очистить всю историю'; }, 2000);
-        loadClips();
       } catch (err) {
-        alert("Ошибка при очистке: " + err.message);
+        // Если произошел сбой интернета во время фоновой очистки
+        alert("Не удалось полностью очистить базу в фоне. Попробуйте еще раз.");
         clearBtn.innerText = '🗑 Очистить всю историю';
+        loadClips(); // Возвращаем плашки обратно, если удаление сорвалось
       }
     }
 
