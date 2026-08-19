@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Quick Clip v4.4</title>
+  <title>Quick Clip v4.5</title>
 
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f2f2f7; -webkit-tap-highlight-color: transparent; }
@@ -39,13 +39,11 @@
     #status { font-size: 14px; text-align: center; margin-top: 16px; font-weight: 600; color: #ff9f0a; }
     #version-tag { font-size: 12px; color: #8e8e93; text-align: center; margin-top: 6px; }
 
-    /* Тестировщик */
-    .debug-box { margin-top: 25px; padding: 12px; background: #1c1c1e; color: #30d158; font-family: monospace; font-size: 11px; border-radius: 10px; max-height: 250px; overflow-y: auto; border: 1px solid #3a3a3c; }
+    .debug-box { margin-top: 25px; padding: 12px; background: #1c1c1e; color: #30d158; font-family: monospace; font-size: 11px; border-radius: 10px; max-height: 200px; overflow-y: auto; border: 1px solid #3a3a3c; }
     .debug-title { color: #ffd60a; font-weight: bold; margin-bottom: 8px; display: flex; justify-content: space-between; }
-    .log-err { color: #ff453a; margin-bottom: 5px; }
-    .log-warn { color: #ff9f0a; margin-bottom: 5px; }
-    .log-info { color: #64d2ff; margin-bottom: 5px; }
-    .log-normal { margin-bottom: 5px; color: #e5e5ea; }
+    .log-err { color: #ff453a; margin-bottom: 4px; }
+    .log-info { color: #64d2ff; margin-bottom: 4px; }
+    .log-normal { margin-bottom: 4px; color: #e5e5ea; }
   </style>
 </head>
 <body>
@@ -60,14 +58,13 @@
   <button id="clearBtn" class="btn btn-clear" onclick="clearAllHistory()">🗑 Очистить всю историю</button>
 
   <div id="status">⏳ Подключение...</div>
-  <div id="version-tag">Версия v4.4 • File Debugger</div>
+  <div id="version-tag">Версия v4.5 • File Cards Fixed</div>
 
   <div id="clipsList"></div>
 
-  <!-- Блок логов -->
   <div class="debug-box">
     <div class="debug-title">
-      <span>🛠 ТЕСТИРОВЩИК v4.4</span>
+      <span>🛠 ТЕСТИРОВЩИК v4.5</span>
       <span style="cursor:pointer; color:#8e8e93;" onclick="clearLogs()">[Очистить]</span>
     </div>
     <div id="debugLogs"></div>
@@ -84,25 +81,23 @@
     let selectedFile = null;
     let isClearing = false;
 
-    // --- ЛОГГЕР ---
     function log(msg, type = 'normal') {
       const logs = document.getElementById('debugLogs');
       if (!logs) return;
       const time = new Date().toLocaleTimeString();
-      const cls = type === 'err' ? 'log-err' : type === 'warn' ? 'log-warn' : type === 'info' ? 'log-info' : 'log-normal';
+      const cls = type === 'err' ? 'log-err' : type === 'info' ? 'log-info' : 'log-normal';
       logs.innerHTML += `<div class="${cls}">[${time}] ${msg}</div>`;
       logs.scrollTop = logs.scrollHeight;
     }
     function clearLogs() { document.getElementById('debugLogs').innerHTML = ''; }
 
-    // --- ВЫБОР ФАЙЛА ---
     function triggerFileInput() {
       if (selectedFile) {
         selectedFile = null;
         document.getElementById('fileInput').value = '';
         document.getElementById('attachBtn').innerHTML = '📎 Прикрепить файл';
         document.getElementById('attachBtn').className = 'btn btn-attach';
-        log('Файл откреплен пользователем', 'info');
+        log('Файл откреплен', 'info');
         return;
       }
       document.getElementById('fileInput').click();
@@ -110,26 +105,19 @@
 
     function handleFileSelect(event) {
       const file = event.target.files[0];
-      if (!file) {
-        log('Окно выбора файла закрыто без выбора', 'warn');
-        return;
-      }
-      log(`Выбран файл: ${file.name}, ${(file.size/1024/1024).toFixed(2)} МБ`, 'info');
-
+      if (!file) return;
       if (file.size > 15 * 1024 * 1024) {
         alert("Файл слишком большой! Максимальный размер — 15 МБ.");
         event.target.value = '';
-        log('Файл отклонен (превышен лимит 15 МБ)', 'err');
         return;
       }
-
       selectedFile = file;
       const btn = document.getElementById('attachBtn');
       btn.innerHTML = `🚀 Готов файл: ${file.name.substring(0, 18)}...`;
       btn.className = 'btn btn-file-ready';
+      log(`Выбран файл: ${file.name}`, 'info');
     }
 
-    // --- ОТПРАВКА ---
     async function sendClip() {
       if (selectedFile) {
         await uploadFile();
@@ -141,41 +129,34 @@
 
       const btn = document.getElementById('sendBtn');
       btn.innerText = 'Отправка...';
-      log('Отправка текста в БД...');
 
       try {
         const response = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips`, {
           method: 'POST', headers: HEADERS, body: JSON.stringify({ content: textHtml })
         });
-        if (!response.ok) throw new Error("Сервер БД отклонил запрос");
+        if (!response.ok) throw new Error("Ошибка отправки");
         
         editor.innerHTML = '';
         btn.innerText = 'Отправлено ✔';
         setTimeout(() => { btn.innerText = 'Отправить в буфер'; }, 2000);
         loadClips();
       } catch (err) { 
-        log('Ошибка отправки текста: ' + err.message, 'err');
+        log('Ошибка текста: ' + err.message, 'err');
         btn.innerText = 'Отправить в буфер'; 
       }
     }
 
-    // --- ЗАГРУЗКА ФАЙЛА В STORAGE ---
     async function uploadFile() {
-      log('--- СТАРТ ОТПРАВКИ ФАЙЛА ---', 'info');
       const btn = document.getElementById('sendBtn');
       const attachBtn = document.getElementById('attachBtn');
       btn.innerText = 'Загрузка файла...';
+      log('Старт загрузки файла в Storage...');
 
       try {
-        if (!selectedFile) throw new Error("Файл потерян из памяти браузера");
-
-        // Очищаем имя от спецсимволов, которые могут сломать URL
         const safeName = (selectedFile.name || 'file').replace(/[^a-zA-Z0-9.\-_а-яА-ЯёЁ]/g, '_');
         const fileName = `${Date.now()}_${safeName}`;
         const encodedFileName = encodeURIComponent(fileName);
         
-        log(`Подготовка POST запроса в Storage. Имя файла: ${fileName}`);
-
         const uploadResponse = await fetch(`${SUPABASE_BASE_URL}/storage/v1/object/files/${encodedFileName}`, {
           method: 'POST',
           headers: {
@@ -186,59 +167,46 @@
           body: selectedFile
         });
 
-        log(`Ответ сервера Storage: ${uploadResponse.status} ${uploadResponse.statusText}`);
-
         if (!uploadResponse.ok) {
           const errText = await uploadResponse.text();
           throw new Error(`Storage Error (${uploadResponse.status}): ${errText}`);
         }
 
-        log(`Файл успешно загружен в хранилище. Создание ссылки...`, 'info');
         const filePublicUrl = `${SUPABASE_BASE_URL}/storage/v1/object/public/files/${encodedFileName}`;
         const fileContentMarker = `FILE:${selectedFile.name}||${filePublicUrl}`;
 
-        log(`Привязка ссылки к таблице clips...`);
         const dbResponse = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips`, {
           method: 'POST', headers: HEADERS, body: JSON.stringify({ content: fileContentMarker })
         });
 
-        log(`Ответ БД на создание карточки: ${dbResponse.status}`);
-        if (!dbResponse.ok) {
-          const dbErr = await dbResponse.text();
-          throw new Error(`Database Error (${dbResponse.status}): ${dbErr}`);
-        }
+        if (!dbResponse.ok) throw new Error("Ошибка привязки файла к БД");
 
-        log(`✅ Файл полностью обработан и сохранен!`, 'info');
-
+        log('Файл успешно загружен и привязан!', 'info');
         selectedFile = null;
         document.getElementById('fileInput').value = '';
-        document.getElementById('editor').innerHTML = ''; 
         attachBtn.innerHTML = '📎 Прикрепить файл';
         attachBtn.className = 'btn btn-attach';
         
         btn.innerText = 'Отправлено ✔';
         setTimeout(() => { btn.innerText = 'Отправить в буфер'; }, 2000);
-        
         loadClips();
       } catch (err) {
-        log(`❌ КРИТИЧЕСКАЯ ОШИБКА: ${err.message}`, 'err');
-        btn.innerText = 'Ошибка отправки';
-        setTimeout(() => { btn.innerText = 'Отправить в буфер'; }, 3000);
+        log('Ошибка файла: ' + err.message, 'err');
+        btn.innerText = 'Отправить в буфер';
       }
     }
 
-    // --- СИНХРОНИЗАЦИЯ ---
     async function loadClips() {
       if (isClearing) return;
 
       try {
         const response = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?select=*&order=created_at.desc`, {
           method: 'GET',
-          headers: { ...HEADERS, 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache', 'Expires': '0' },
+          headers: { ...HEADERS, 'Cache-Control': 'no-cache, no-store, must-revalidate' },
           cache: 'no-store'
         });
 
-        if (!response.ok) throw new Error("Нет связи с сервером БД");
+        if (!response.ok) throw new Error("Сбой сети");
 
         const data = await response.json();
         const sixHoursAgo = Date.now() - (6 * 60 * 60 * 1000);
@@ -248,7 +216,7 @@
 
         const validClips = data.filter(c => new Date(c.created_at).getTime() >= sixHoursAgo);
         
-        document.getElementById('status').innerText = '🟢 Подключено (v4.4)';
+        document.getElementById('status').innerText = '🟢 Подключено (v4.5)';
         document.getElementById('status').style.color = '#34c759';
 
         const list = document.getElementById('clipsList');
@@ -257,6 +225,7 @@
           return;
         }
 
+        // Рендеринг карточек с защитой от показа сырого кода файла
         list.innerHTML = validClips.map(c => {
           if (c.content && c.content.startsWith('FILE:')) {
             const parts = c.content.replace('FILE:', '').split('||');
@@ -276,7 +245,7 @@
           }
         }).join('');
       } catch (err) { 
-        document.getElementById('status').innerText = '🔴 Сбой сети (Проверьте подключение)';
+        document.getElementById('status').innerText = '🔴 Сбой сети';
         document.getElementById('status').style.color = '#ff3b30';
       }
     }
@@ -301,21 +270,18 @@
         document.body.removeChild(tempDiv);
         
         alert('Успешно скопировано (абзацы сохранены)!');
-      } catch (err) { alert('Не удалось скопировать текст: ' + err.message); }
+      } catch (err) { alert('Ошибка копирования'); }
     }
 
     async function clearAllHistory() {
       isClearing = true; 
-      log('--- ЗАПУСК ОЧИСТКИ ИСТОРИИ ---', 'info');
       const clearBtn = document.getElementById('clearBtn');
       clearBtn.innerText = 'Очистка...';
-      
       document.getElementById('clipsList').innerHTML = '<p style="text-align:center; color:#8e8e93; margin-top:30px; font-weight:500;">Буфер пуст</p>';
 
       try {
-        const response = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?select=id,content`, { method: 'GET', headers: { ...HEADERS, 'Cache-Control': 'no-store' } });
+        const response = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?select=id,content`, { method: 'GET', headers: HEADERS });
         const allClips = await response.json();
-        log(`Найдено записей для удаления: ${allClips.length}`);
 
         for (const clip of allClips) {
           await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?id=eq.${clip.id}`, { method: 'DELETE', headers: HEADERS });
@@ -333,9 +299,8 @@
           }
         }
         clearBtn.innerText = 'Удалено ✔';
-        log('Очистка успешно завершена', 'info');
       } catch (err) { 
-        log('Ошибка при очистке: ' + err.message, 'err');
+        log('Ошибка очистки: ' + err.message, 'err');
       } finally { 
         setTimeout(() => { clearBtn.innerText = '🗑 Очистить всю историю'; }, 2000);
         isClearing = false; 
@@ -349,10 +314,8 @@
       }
     }
 
-    log('Запуск v4.4. Таймер активирован.', 'info');
     setInterval(loadClips, 3000);
     loadClips();
-
   </script>
 </body>
 </html>
