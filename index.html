@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quick Clip v2.4</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <title>Quick Clip v2.5</title>
+
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f4f4f9; }
     h2 { color: #333; text-align: center; margin-bottom: 5px; }
@@ -16,139 +16,159 @@
     #status { font-size: 13px; color: #ff9f0a; text-align: center; margin-top: 10px; font-weight: bold; }
     #version-tag { font-size: 11px; color: #8e8e93; text-align: center; margin-top: 4px; }
     
-    /* Логгер v2.4 */
     .debug-box { margin-top: 25px; padding: 12px; background: #1c1c1e; color: #30d158; font-family: monospace; font-size: 11px; border-radius: 8px; max-height: 250px; overflow-y: auto; border: 1px solid #3a3a3c; }
     .debug-title { color: #ffd60a; font-weight: bold; margin-bottom: 6px; display: flex; justify-content: space-between; }
     .log-err { color: #ff453a; margin-bottom: 4px;}
     .log-warn { color: #ff9f0a; margin-bottom: 4px;}
     .log-info { color: #64d2ff; margin-bottom: 4px;}
   </style>
+
+  <!-- 1. Глобальный перехватчик устанавливается ПЕРВЫМ -->
+  <script>
+    window.logQueue = [];
+    function log(msg, type = 'normal') {
+      const time = new Date().toLocaleTimeString();
+      const logsBox = document.getElementById('debugLogs');
+      
+      // Если DOM еще не прогрузился, собираем логи в очередь
+      if (!logsBox) {
+          window.logQueue.push({ time, msg, type });
+          return;
+      }
+      
+      let cls = '';
+      if (type === 'err') cls = 'class="log-err"';
+      if (type === 'warn') cls = 'class="log-warn"';
+      if (type === 'info') cls = 'class="log-info"';
+      logsBox.innerHTML += `<div ${cls}>[${time}] ${msg}</div>`;
+      logsBox.scrollTop = logsBox.scrollHeight;
+    }
+
+    function flushLogs() {
+      window.logQueue.forEach(l => {
+          let cls = l.type === 'err' ? 'class="log-err"' : l.type === 'warn' ? 'class="log-warn"' : 'class="log-info"';
+          document.getElementById('debugLogs').innerHTML += `<div ${cls}>[${l.time}] ${l.msg}</div>`;
+      });
+      window.logQueue = [];
+    }
+
+    // Ловим жесткие ошибки браузера
+    window.onerror = function(message, source, lineno, colno, error) {
+      log(`💥 СИСТЕМНАЯ ОШИБКА: ${message} (строка ${lineno})`, 'err');
+      document.getElementById('status').innerText = '🔴 Критический сбой';
+      document.getElementById('status').style.color = '#ff3b30';
+      return false;
+    };
+
+    window.addEventListener("unhandledrejection", function(event) {
+      log(`💥 СБОЙ СЕТИ: ${event.reason}`, 'err');
+    });
+    
+    log('🌐 Запуск системы...', 'info');
+  </script>
+
+  <!-- 2. Меняем источник CDN и ставим defer, чтобы не блокировать страницу -->
+  <script defer src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </head>
 <body>
-
   <h2>Quick Clip 📋</h2>
   <textarea id="inputText" placeholder="Вставьте текст или скопируйте отсюда..."></textarea>
   <button id="sendBtn" onclick="sendClip()">Отправить в буфер</button>
   
-  <div id="status">⏳ Инициализация v2.4...</div>
-  <div id="version-tag">Версия v2.4</div>
+  <div id="status">⏳ Инициализация v2.5...</div>
+  <div id="version-tag">Версия v2.5</div>
 
   <div id="clipsList"></div>
 
   <div class="debug-box">
     <div class="debug-title">
-      <span>🛠 ТЕСТИРОВЩИК v2.4</span>
+      <span>🛠 ТЕСТИРОВЩИК v2.5</span>
       <span style="cursor:pointer; color:#8e8e93;" onclick="clearLogs()">[Очистить]</span>
     </div>
     <div id="debugLogs"></div>
   </div>
 
   <script>
-    // 1. Логгер объявляется ПЕРВЫМ, чтобы ловить любые ошибки
-    function log(msg, type = 'normal') {
-      const logs = document.getElementById('debugLogs');
-      if (!logs) return;
-      const time = new Date().toLocaleTimeString();
-      let cls = '';
-      if (type === 'err') cls = 'class="log-err"';
-      if (type === 'warn') cls = 'class="log-warn"';
-      if (type === 'info') cls = 'class="log-info"';
-      logs.innerHTML += `<div ${cls}>[${time}] ${msg}</div>`;
-      logs.scrollTop = logs.scrollHeight;
-    }
-
-    function clearLogs() {
-      document.getElementById('debugLogs').innerHTML = '';
-    }
-
-    log('🚀 Скрипт запущен. Проверка библиотек...', 'info');
+    // Выгружаем накопленные стартовые логи
+    flushLogs();
+    log('🚀 Экран загружен. Ждем библиотеку...', 'info');
 
     let supabase;
     const SUPABASE_URL = 'https://vnzgdrqupislieaonpic.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_8I-2Kz4A1IdTy4KsJRKF_g_UnxIQ8MW';
 
-    // 2. Бронированная инициализация базы
-    try {
-      if (typeof window.supabase === 'undefined') {
-        throw new Error("Библиотека Supabase не загрузилась. Возможно, мешает блокировщик рекламы в Safari или медленный интернет.");
+    function clearLogs() {
+      document.getElementById('debugLogs').innerHTML = '';
+    }
+
+    async function initApp() {
+      try {
+        if (typeof window.supabase === 'undefined') {
+          throw new Error("Файл базы данных не загрузился. Возможна блокировка Wi-Fi провайдером.");
+        }
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        log('✅ База успешно подключена!', 'info');
+        loadClips();
+        setupRealtime();
+      } catch (e) {
+        log('❌ ОШИБКА ИНИЦИАЛИЗАЦИИ: ' + e.message, 'err');
+        document.getElementById('status').innerText = '🔴 Ошибка связи';
+        document.getElementById('status').style.color = '#ff3b30';
       }
-      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-      log('✅ Клиент базы успешно создан.', 'info');
-    } catch (e) {
-      log('❌ КРИТИЧЕСКАЯ ОШИБКА: ' + e.message, 'err');
-      document.getElementById('status').innerText = '🔴 Сбой инициализации';
-      document.getElementById('status').style.color = '#ff3b30';
     }
 
     async function sendClip() {
-      if (!supabase) {
-         log('❌ ОШИБКА: Нет связи с базой', 'err');
-         return;
-      }
+      if (!supabase) return log('❌ Отправка невозможна: нет связи с БД', 'err');
       const btn = document.getElementById('sendBtn');
       const text = document.getElementById('inputText').value;
       if (!text.trim()) return;
 
       btn.innerText = 'Отправка...';
-      log('--- ПОПЫТКА ОТПРАВКИ ---', 'info');
+      log('--- ОТПРАВКА ДАННЫХ ---', 'info');
 
       try {
         const { data, error } = await supabase.from('clips').insert([{ content: text }]).select();
-
         if (error) {
-          log('❌ ОШИБКА Supabase: ' + error.message, 'err');
-          if (error.code === '42501') {
-            log('⚠️ ПРИЧИНА: Row Level Security (RLS) блокирует доступ. Зайдите в панель Supabase и отключите RLS или добавьте Policy!', 'err');
-          }
-          btn.innerText = 'Ошибка отправки';
+          log(`❌ БАЗА ОТКЛОНИЛА ЗАПРОС: ${error.message} (Возможно нужен RLS Policy)`, 'err');
+          btn.innerText = 'Ошибка';
           btn.style.background = '#ff3b30';
         } else {
-          log('✅ Успешно отправлено!', 'info');
+          log('✅ Текст сохранен на сервере!', 'info');
           document.getElementById('inputText').value = '';
           btn.innerText = 'Отправлено ✔';
           btn.style.background = '#34c759';
-          
           setTimeout(() => {
             btn.innerText = 'Отправить в буфер';
             btn.style.background = '#007aff';
           }, 2000);
-          
           loadClips();
         }
       } catch (err) {
-         log('❌ СБОЙ ПРИ ОТПРАВКЕ: ' + err.message, 'err');
+         log('❌ СБОЙ ЗАПРОСА: ' + err.message, 'err');
       }
     }
 
     async function loadClips() {
       if (!supabase) return;
-      log('--- ЗАГРУЗКА ДАННЫХ ---', 'info');
       const list = document.getElementById('clipsList');
-      
       try {
-        const { data, error } = await supabase
-          .from('clips')
-          .select('*')
-          .order('created_at', { ascending: false });
-
+        const { data, error } = await supabase.from('clips').select('*').order('created_at', { ascending: false });
         if (error) {
-          log('❌ ОШИБКА ЗАГРУЗКИ: ' + error.message, 'err');
-          document.getElementById('status').innerText = '🔴 Ошибка базы';
+          log('❌ ОШИБКА ЗАГРУЗКИ ТАБЛИЦЫ: ' + error.message, 'err');
+          document.getElementById('status').innerText = '🔴 Ошибка доступа';
           document.getElementById('status').style.color = '#ff3b30';
-          list.innerHTML = `<div class="card" style="color:red;">Ошибка: ${error.message}</div>`;
           return;
         }
-
         document.getElementById('status').innerText = '🟢 Готово к работе';
         document.getElementById('status').style.color = '#34c759';
-
+        
         if (!data || data.length === 0) {
           log('⚠️ Буфер пуст.', 'warn');
           list.innerHTML = '<p style="text-align:center; color:#999; margin-top:20px;">Буфер пуст</p>';
           return;
         }
-
-        log(`✅ Загружено ${data.length} записей.`, 'info');
+        
+        log(`✅ Загружено ссылок: ${data.length}`, 'info');
         list.innerHTML = data.map(c => `
           <div class="card">
             <div>${escapeHtml(c.content)}</div>
@@ -156,17 +176,14 @@
           </div>
         `).join('');
       } catch (err) {
-         log('❌ СБОЙ СЕТИ: ' + err.message, 'err');
+         log('❌ КРИТИЧЕСКИЙ СБОЙ: ' + err.message, 'err');
       }
     }
 
     function copyText(text) {
       navigator.clipboard.writeText(text).then(() => {
-        log('📋 Скопировано в буфер устройства', 'info');
-        alert('Скопировано в буфер!');
-      }).catch(err => {
-        log('❌ Ошибка копирования: ' + err, 'err');
-      });
+        log('📋 Текст скопирован!', 'info');
+      }).catch(err => log('❌ Ошибка копирования: ' + err, 'err'));
     }
 
     function escapeHtml(text) {
@@ -174,24 +191,17 @@
       return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
-    // Подключение автообновления
-    if (supabase) {
-      try {
-        supabase
-          .channel('public:clips')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'clips' }, payload => {
-            log('🔄 Получено обновление от базы!', 'info');
-            loadClips();
-          })
-          .subscribe((status) => {
-             log('📡 Статус автообновления: ' + status, 'info');
-          });
-      } catch (e) {
-        log('❌ Ошибка подписки на автообновление: ' + e.message, 'err');
-      }
-      // Финальный запуск
-      loadClips();
+    function setupRealtime() {
+      supabase.channel('public:clips')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'clips' }, () => {
+          log('🔄 База обновилась, скачиваем...', 'info');
+          loadClips();
+        }).subscribe();
     }
+
+    // Запускаем инициализацию только после полной загрузки всех скриптов
+    window.addEventListener('load', initApp);
+
   </script>
 </body>
 </html>
