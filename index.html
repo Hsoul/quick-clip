@@ -3,10 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Quick Clip v4.2</title>
+  <title>Quick Clip v4.3</title>
 
   <style>
-    /* Базовые стили страницы */
     body { 
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
       max-width: 600px; 
@@ -16,154 +15,97 @@
       -webkit-tap-highlight-color: transparent;
     }
     
-    h2 { 
-      color: #1c1c1e; 
-      text-align: center; 
-      margin-bottom: 15px; 
-      font-weight: 700; 
-    }
+    h2 { color: #1c1c1e; text-align: center; margin-bottom: 15px; font-weight: 700; }
     
-    /* 3D Поле для ввода с сохранением форматирования (абзацы, списки) */
+    /* 3D Поле для ввода с сохранением форматирования */
     #editor { 
-      width: 100%; 
-      min-height: 200px; 
-      padding: 16px; 
-      border-radius: 12px; 
-      border: 1px solid #d1d1d6; 
-      box-sizing: border-box; 
-      font-size: 16px; 
-      background: #ffffff; 
+      width: 100%; min-height: 180px; padding: 16px; border-radius: 12px; border: 1px solid #d1d1d6; 
+      box-sizing: border-box; font-size: 16px; background: #ffffff; 
       box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06), 0 4px 10px rgba(0, 0, 0, 0.03);
-      white-space: pre-wrap; 
-      word-wrap: break-word; 
-      overflow-y: auto; 
-      outline: none;
-      transition: all 0.2s ease;
-      color: #1c1c1e;
+      white-space: pre-wrap; word-wrap: break-word; overflow-y: auto; outline: none;
+      transition: all 0.2s ease; color: #1c1c1e;
     }
+    #editor:focus { border-color: #007aff; box-shadow: inset 0 2px 4px rgba(0,0,0,0.06), 0 0 0 3px rgba(0,122,255,0.2); }
+    #editor:empty:before { content: attr(placeholder); color: #8e8e93; pointer-events: none; }
     
-    #editor:focus { 
-      border-color: #007aff; 
-      box-shadow: inset 0 2px 4px rgba(0,0,0,0.06), 0 0 0 3px rgba(0,122,255,0.2); 
-    }
+    /* Скрытый системный выбор файла */
+    input[type="file"] { display: none; }
 
-    /* Имитация placeholder для div contenteditable */
-    #editor:empty:before {
-      content: attr(placeholder);
-      color: #8e8e93;
-      pointer-events: none;
-    }
-    
     /* Общие стили для 3D кнопок */
     .btn { 
-      width: 100%; 
-      padding: 15px; 
-      margin-top: 14px; 
-      border: none; 
-      border-radius: 12px; 
-      font-size: 16px; 
-      font-weight: 600; 
-      cursor: pointer; 
-      transition: all 0.15s ease; 
-      display: flex; 
-      align-items: center; 
-      justify-content: center; 
+      width: 100%; padding: 14px; margin-top: 14px; border: none; border-radius: 12px; 
+      font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; 
+      display: flex; align-items: center; justify-content: center; gap: 8px;
     }
+    .btn:active { transform: translateY(2px); }
     
-    .btn:active { 
-      transform: translateY(2px); 
+    /* Светло-серая кнопка прикрепления файла */
+    .btn-attach { 
+      background: linear-gradient(180deg, #ffffff 0%, #e5e5ea 100%); 
+      color: #1c1c1e; border: 1px solid #c7c7cc;
+      box-shadow: 0 3px 0 #b2b2b7, 0 4px 8px rgba(0,0,0,0.1);
     }
+    .btn-attach:active { box-shadow: 0 1px 0 #b2b2b7; }
     
+    /* Фиолетовая кнопка (когда файл выбран) */
+    .btn-file-ready { 
+      background: linear-gradient(180deg, #6366f1 0%, #4f46e5 100%); 
+      color: white; 
+      box-shadow: 0 3px 0 #3730a3, 0 4px 8px rgba(79,70,229,0.3);
+    }
+    .btn-file-ready:active { box-shadow: 0 1px 0 #3730a3; }
+
     /* Синяя кнопка отправки */
     .btn-primary { 
       background: linear-gradient(180deg, #007aff 0%, #0056b3 100%); 
-      color: white; 
-      box-shadow: 0 3px 0 #004085, 0 4px 8px rgba(0,122,255,0.3); 
+      color: white; box-shadow: 0 3px 0 #004085, 0 4px 8px rgba(0,122,255,0.3); 
     }
     .btn-primary:active { box-shadow: 0 1px 0 #004085; }
 
     /* Красная кнопка очистки */
     .btn-clear { 
       background: linear-gradient(180deg, #ff3b30 0%, #c62828 100%); 
-      color: white; 
-      box-shadow: 0 3px 0 #8e0000, 0 4px 8px rgba(255,59,48,0.25); 
+      color: white; box-shadow: 0 3px 0 #8e0000, 0 4px 8px rgba(255,59,48,0.25); 
     }
     .btn-clear:active { box-shadow: 0 1px 0 #8e0000; }
     
-    /* Зеленая кнопка копирования в карточке */
+    /* Зеленая кнопка действий (Копировать/Скачать) */
     .action-btn { 
-      background: linear-gradient(180deg, #34c759 0%, #248a3d 100%); 
-      margin-top: 12px; 
-      padding: 12px; 
-      color: white; 
-      width: 100%; 
-      border: none; 
-      border-radius: 10px; 
-      cursor: pointer; 
-      font-weight: 600; 
-      font-size: 15px;
-      box-shadow: 0 3px 0 #1b662d, 0 4px 6px rgba(52,199,89,0.2); 
+      background: linear-gradient(180deg, #34c759 0%, #248a3d 100%); margin-top: 12px; padding: 12px; 
+      color: white; width: 100%; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; 
+      font-size: 15px; box-shadow: 0 3px 0 #1b662d, 0 4px 6px rgba(52,199,89,0.2); 
+      display: block; text-align: center; box-sizing: border-box; text-decoration: none;
     }
-    .action-btn:active { 
-      transform: translateY(2px); 
-      box-shadow: 0 1px 0 #1b662d; 
-    }
+    .action-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #1b662d; }
     
-    /* Карточка с сохраненным сообщением */
-    .card { 
-      background: #ffffff; 
-      padding: 18px; 
-      margin-top: 16px; 
-      border-radius: 14px; 
-      border: 1px solid #e5e5ea; 
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
-    }
+    /* Карточка контента */
+    .card { background: #ffffff; padding: 18px; margin-top: 16px; border-radius: 14px; border: 1px solid #e5e5ea; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .card-content { white-space: pre-wrap; margin-bottom: 5px; font-size: 16px; color: #1c1c1e; line-height: 1.4; }
     
-    .card-content { 
-      white-space: pre-wrap; 
-      margin-bottom: 5px; 
-      font-size: 16px; 
-      color: #1c1c1e; 
-      line-height: 1.4;
-    }
-    
-    /* Информационные плашки */
-    #status { 
-      font-size: 14px; 
-      text-align: center; 
-      margin-top: 16px; 
-      font-weight: 600; 
-    }
-    
-    #version-tag { 
-      font-size: 12px; 
-      color: #8e8e93; 
-      text-align: center; 
-      margin-top: 6px; 
-    }
+    #status { font-size: 14px; text-align: center; margin-top: 16px; font-weight: 600; color: #ff9f0a; }
+    #version-tag { font-size: 12px; color: #8e8e93; text-align: center; margin-top: 6px; }
   </style>
 </head>
 <body>
 
   <h2>Quick Clip 📋</h2>
   
-  <!-- Умное поле ввода, сохраняющее абзацы -->
   <div id="editor" contenteditable="true" placeholder="Вставьте текст или скопируйте отсюда..."></div>
   
+  <button id="attachBtn" class="btn btn-attach" onclick="triggerFileInput()">📎 Прикрепить файл</button>
+  <input type="file" id="fileInput" onchange="handleFileSelect(event)">
+
   <button id="sendBtn" class="btn btn-primary" onclick="sendClip()">Отправить в буфер</button>
   <button id="clearBtn" class="btn btn-clear" onclick="clearAllHistory()">🗑 Очистить всю историю</button>
 
-  <div id="status" style="color: #ff9f0a;">⏳ Загрузка...</div>
-  <div id="version-tag">Версия v4.2 • Pro Formatted Edition</div>
+  <div id="status">⏳ Подключение...</div>
+  <div id="version-tag">Версия v4.3 • Pro Text & Reliable Wipe</div>
 
-  <!-- Список загруженных текстов -->
   <div id="clipsList"></div>
 
   <script>
-    // --- НАСТРОЙКИ BAZY ДАННЫХ (Supabase REST API) ---
     const SUPABASE_BASE_URL = 'https://vnzgdrqupislieaonpic.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_8I-2Kz4A1IdTy4KsJRKF_g_UnxIQ8MW';
-    
     const HEADERS = { 
       'apikey': SUPABASE_KEY, 
       'Authorization': `Bearer ${SUPABASE_KEY}`, 
@@ -171,14 +113,50 @@
       'Prefer': 'return=representation' 
     };
 
+    let selectedFile = null;
     let isClearing = false;
 
-    // --- ФУНКЦИЯ ОТПРАВКИ ТЕКСТА ---
+    // --- ЛОГИКА ВЫБОРА ФАЙЛА ---
+    function triggerFileInput() {
+      if (selectedFile) {
+        selectedFile = null;
+        document.getElementById('fileInput').value = '';
+        const btn = document.getElementById('attachBtn');
+        btn.innerHTML = '📎 Прикрепить файл';
+        btn.className = 'btn btn-attach';
+        return;
+      }
+      document.getElementById('fileInput').click();
+    }
+
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      if (file.size > 15 * 1024 * 1024) {
+        alert("Файл слишком большой! Максимальный размер — 15 МБ.");
+        event.target.value = '';
+        return;
+      }
+
+      selectedFile = file;
+      const btn = document.getElementById('attachBtn');
+      btn.innerHTML = `🚀 Готов файл: ${file.name.substring(0, 18)}...`;
+      btn.className = 'btn btn-file-ready';
+    }
+
+    // --- ОТПРАВКА ДАННЫХ (Текст или Файл) ---
     async function sendClip() {
+      // 1. Отправляем файл, если он выбран
+      if (selectedFile) {
+        await uploadFile();
+        return;
+      }
+
+      // 2. Иначе отправляем текст
       const editor = document.getElementById('editor');
       const textHtml = editor.innerHTML; 
       
-      // Проверка на пустое поле
       if (!textHtml.trim() || textHtml === '<br>') return;
 
       const btn = document.getElementById('sendBtn');
@@ -191,102 +169,137 @@
           body: JSON.stringify({ content: textHtml })
         });
 
-        if (!response.ok) {
-          throw new Error("Не удалось отправить данные на сервер");
-        }
+        if (!response.ok) throw new Error("Не удалось сохранить текст");
 
-        // Очищаем поле после успешной отправки
         editor.innerHTML = '';
         btn.innerText = 'Отправлено ✔';
+        setTimeout(() => { btn.innerText = 'Отправить в буфер'; }, 2000);
         
-        setTimeout(() => { 
-          btn.innerText = 'Отправить в буфер'; 
-        }, 2000);
-        
-        loadClips(); // Принудительно обновляем ленту
+        loadClips();
       } catch (err) { 
         alert('Ошибка: ' + err.message); 
         btn.innerText = 'Отправить в буфер'; 
       }
     }
 
-    // --- ФУНКЦИЯ ЗАГРУЗКИ И СИНХРОНИЗАЦИИ ---
+    // --- ЗАГРУЗКА ФАЙЛА В ХРАНИЛИЩЕ ---
+    async function uploadFile() {
+      const btn = document.getElementById('sendBtn');
+      const attachBtn = document.getElementById('attachBtn');
+      btn.innerText = 'Отправка файла...';
+
+      try {
+        const safeName = selectedFile.name.replace(/\s+/g, '_');
+        const fileName = `${Date.now()}_${safeName}`;
+        const encodedFileName = encodeURIComponent(fileName);
+        
+        const uploadResponse = await fetch(`${SUPABASE_BASE_URL}/storage/v1/object/files/${encodedFileName}`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': selectedFile.type || 'application/octet-stream'
+          },
+          body: selectedFile
+        });
+
+        if (!uploadResponse.ok) {
+          const errText = await uploadResponse.text();
+          throw new Error(`Хранилище Storage заблокировало файл. Возможно, Bucket не существует или закрыт. Детали: ${errText}`);
+        }
+
+        const filePublicUrl = `${SUPABASE_BASE_URL}/storage/v1/object/public/files/${encodedFileName}`;
+        const fileContentMarker = `FILE:${selectedFile.name}||${filePublicUrl}`;
+
+        const dbResponse = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips`, {
+          method: 'POST',
+          headers: HEADERS,
+          body: JSON.stringify({ content: fileContentMarker })
+        });
+
+        if (!dbResponse.ok) throw new Error("Файл загружен, но не удалось привязать к базе.");
+
+        selectedFile = null;
+        document.getElementById('fileInput').value = '';
+        attachBtn.innerHTML = '📎 Прикрепить файл';
+        attachBtn.className = 'btn btn-attach';
+        
+        btn.innerText = 'Отправлено ✔';
+        setTimeout(() => { btn.innerText = 'Отправить в буфер'; }, 2000);
+        
+        loadClips();
+      } catch (err) {
+        alert('СБОЙ ПРИ ОТПРАВКЕ ФАЙЛА:\n' + err.message);
+        btn.innerText = 'Отправить в буфер';
+      }
+    }
+
+    // --- СИНХРОНИЗАЦИЯ ДАННЫХ ---
     async function loadClips() {
-      // Останавливаем загрузку, если прямо сейчас идет очистка
       if (isClearing) return;
 
       try {
-        // Жесткие заголовки для обхода кэша браузера Safari
         const response = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?select=*&order=created_at.desc`, {
           method: 'GET',
           headers: { 
-            ...HEADERS, 
-            'Cache-Control': 'no-cache, no-store, must-revalidate', 
-            'Pragma': 'no-cache', 
-            'Expires': '0' 
+            ...HEADERS, 'Cache-Control': 'no-store, no-cache, must-revalidate', 'Pragma': 'no-cache', 'Expires': '0' 
           },
           cache: 'no-store'
         });
 
-        if (!response.ok) throw new Error("Нет связи с базой данных");
+        if (!response.ok) throw new Error("Нет связи");
 
         const data = await response.json();
-
-        // Логика автоочистки (удаляем всё старше 6 часов)
-        const sixHoursInMs = 6 * 60 * 60 * 1000;
-        const sixHoursAgo = Date.now() - sixHoursInMs;
+        const sixHoursAgo = Date.now() - (6 * 60 * 60 * 1000);
         
         const oldClips = data.filter(c => new Date(c.created_at).getTime() < sixHoursAgo);
-        if (oldClips.length > 0) {
-          cleanOldData(oldClips);
-        }
+        if (oldClips.length > 0) cleanOldData(oldClips);
 
-        // Оставляем только свежие записи для отображения
         const validClips = data.filter(c => new Date(c.created_at).getTime() >= sixHoursAgo);
-
-        // Обновляем статус
-        const statusEl = document.getElementById('status');
-        statusEl.innerText = '🟢 Подключено (v4.2)';
-        statusEl.style.color = '#34c759';
-
         const list = document.getElementById('clipsList');
         
-        // Если база пуста
+        document.getElementById('status').innerText = '🟢 Подключено (v4.3)';
+        document.getElementById('status').style.color = '#34c759';
+
         if (!validClips || validClips.length === 0) {
           list.innerHTML = '<p style="text-align:center; color:#8e8e93; margin-top:30px; font-weight:500;">Буфер пуст</p>';
           return;
         }
 
-        // Отрисовка карточек с текстом
-        list.innerHTML = validClips.map(c => `
-          <div class="card">
-            <div class="card-content">${c.content}</div>
-            <button class="action-btn" onclick="copyFormatted('${encodeURIComponent(c.content)}')">
-              Скопировать текст
-            </button>
-          </div>
-        `).join('');
+        list.innerHTML = validClips.map(c => {
+          if (c.content && c.content.startsWith('FILE:')) {
+            const parts = c.content.replace('FILE:', '').split('||');
+            const fName = parts[0] || 'Файл';
+            const fUrl = parts[1] || '#';
+            return `
+              <div class="card">
+                <div class="card-content">📁 <b>Файл:</b> ${fName}</div>
+                <a href="${fUrl}" target="_blank" download class="action-btn">📥 Скачать файл</a>
+              </div>`;
+          } else {
+            return `
+              <div class="card">
+                <div class="card-content">${c.content}</div>
+                <button class="action-btn" onclick="copyFormatted('${encodeURIComponent(c.content)}')">Скопировать текст</button>
+              </div>`;
+          }
+        }).join('');
         
       } catch (err) { 
-        const statusEl = document.getElementById('status');
-        statusEl.innerText = '🔴 Сбой сети (Проверьте подключение)';
-        statusEl.style.color = '#ff3b30';
+        document.getElementById('status').innerText = '🔴 Сбой сети (Проверьте подключение)';
+        document.getElementById('status').style.color = '#ff3b30';
       }
     }
 
-    // --- ФУНКЦИЯ КОПИРОВАНИЯ С СОХРАНЕНИЕМ АБЗАЦЕВ ---
     function copyFormatted(encodedHtml) {
       try {
         const html = decodeURIComponent(encodedHtml);
-        
-        // Создаем невидимый элемент для правильного выделения HTML
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = html;
         tempDiv.style.position = 'absolute';
         tempDiv.style.left = '-9999px';
         document.body.appendChild(tempDiv);
         
-        // Выделяем содержимое и копируем в системный буфер
         const selection = window.getSelection();
         const range = document.createRange();
         range.selectNodeContents(tempDiv);
@@ -294,66 +307,72 @@
         selection.addRange(range);
         
         document.execCommand('copy');
-        
-        // Убираем следы
         selection.removeAllRanges();
         document.body.removeChild(tempDiv);
         
         alert('Успешно скопировано (абзацы сохранены)!');
       } catch (err) {
-        alert('Не удалось скопировать текст: ' + err.message);
+        alert('Не удалось скопировать текст.');
       }
     }
 
-    // --- ФУНКЦИЯ ПОЛНОЙ ОЧИСТКИ БАЗЫ ---
+    // --- ПОЛНАЯ И НАДЕЖНАЯ ОЧИСТКА ---
     async function clearAllHistory() {
-      isClearing = true; // Блокируем авто-обновление
-      
+      isClearing = true; 
       const clearBtn = document.getElementById('clearBtn');
       clearBtn.innerText = 'Очистка...';
       
-      // Мгновенно убираем плашки с экрана для отзывчивости интерфейса
+      // Мгновенное визуальное исчезновение плашек
       document.getElementById('clipsList').innerHTML = '<p style="text-align:center; color:#8e8e93; margin-top:30px; font-weight:500;">Буфер пуст</p>';
 
       try {
-        // Запрос на удаление всех записей (id >= 0)
-        await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?id=gte.0`, { 
-          method: 'DELETE', 
-          headers: HEADERS 
+        const response = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?select=id,content`, { 
+          method: 'GET', headers: { ...HEADERS, 'Cache-Control': 'no-store' } 
         });
+        const allClips = await response.json();
+
+        // Безотказное удаление по одной записи
+        for (const clip of allClips) {
+          // Удаление из базы данных
+          await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?id=eq.${clip.id}`, { 
+            method: 'DELETE', headers: HEADERS 
+          });
+          
+          // Если это файл, удаляем его из Storage
+          if (clip.content && clip.content.startsWith('FILE:')) {
+            const parts = clip.content.replace('FILE:', '').split('||');
+            const fUrl = parts[1];
+            if (fUrl) {
+              const fileStoragePath = fUrl.split('/files/')[1];
+              if (fileStoragePath) {
+                await fetch(`${SUPABASE_BASE_URL}/storage/v1/object/files/${fileStoragePath}`, {
+                  method: 'DELETE',
+                  headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                });
+              }
+            }
+          }
+        }
         
         clearBtn.innerText = 'Удалено ✔';
       } catch (err) { 
         alert("Произошел сбой сети при попытке очистки."); 
       } finally { 
-        // Возвращаем интерфейс в нормальное состояние через 2 секунды
-        setTimeout(() => { 
-          clearBtn.innerText = '🗑 Очистить всю историю'; 
-        }, 2000);
+        setTimeout(() => { clearBtn.innerText = '🗑 Очистить всю историю'; }, 2000);
         isClearing = false; 
-        loadClips(); // Запускаем синхронизацию снова
+        loadClips(); 
       }
     }
 
-    // --- ФУНКЦИЯ УДАЛЕНИЯ КОНКРЕТНЫХ УСТАРЕВШИХ ЗАПИСЕЙ ---
     async function cleanOldData(oldClips) {
       for (const clip of oldClips) {
         try {
-          await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?id=eq.${clip.id}`, { 
-            method: 'DELETE', 
-            headers: HEADERS 
-          });
-        } catch (e) {
-          // Игнорируем ошибки удаления в фоне
-        }
+          await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?id=eq.${clip.id}`, { method: 'DELETE', headers: HEADERS });
+        } catch (e) {}
       }
     }
 
-    // --- ЗАПУСК ТАЙМЕРА И ПЕРВИЧНАЯ ЗАГРУЗКА ---
-    // Обновляем список каждые 3 секунды
     setInterval(loadClips, 3000);
-    
-    // Запускаем сразу при открытии страницы
     loadClips();
 
   </script>
