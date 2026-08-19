@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quick Clip v3.6</title>
+  <title>Quick Clip v3.7</title>
 
   <style>
     body { 
@@ -122,8 +122,8 @@
   <button id="sendBtn" class="btn btn-primary" onclick="sendClip()">Отправить в буфер</button>
   <button id="clearBtn" class="btn btn-clear" onclick="clearAllHistory()">🗑 Очистить всю историю</button>
 
-  <div id="status">⏳ Подключение v3.6...</div>
-  <div id="version-tag">Версия v3.6 • Stable Sync</div>
+  <div id="status">⏳ Подключение v3.7...</div>
+  <div id="version-tag">Версия v3.7 • Cyrillic Fix & Storage Ready</div>
 
   <div id="clipsList"></div>
 
@@ -205,9 +205,12 @@
       btn.innerText = 'Загрузка файла...';
 
       try {
-        const fileName = `${Date.now()}_${selectedFile.name}`;
+        // Убираем пробелы и кодируем русские буквы для URL
+        const safeName = selectedFile.name.replace(/\s+/g, '_');
+        const fileName = `${Date.now()}_${safeName}`;
+        const encodedFileName = encodeURIComponent(fileName);
         
-        const uploadResponse = await fetch(`${SUPABASE_BASE_URL}/storage/v1/object/files/${fileName}`, {
+        const uploadResponse = await fetch(`${SUPABASE_BASE_URL}/storage/v1/object/files/${encodedFileName}`, {
           method: 'POST',
           headers: {
             'apikey': SUPABASE_KEY,
@@ -217,9 +220,12 @@
           body: selectedFile
         });
 
-        if (!uploadResponse.ok) throw new Error("Сбой загрузки Storage.");
+        if (!uploadResponse.ok) {
+          const errText = await uploadResponse.text();
+          throw new Error(`Хранилище отклонило файл. Ошибка: ${errText}`);
+        }
 
-        const filePublicUrl = `${SUPABASE_BASE_URL}/storage/v1/object/public/files/${fileName}`;
+        const filePublicUrl = `${SUPABASE_BASE_URL}/storage/v1/object/public/files/${encodedFileName}`;
         const fileContentMarker = `FILE:${selectedFile.name}||${filePublicUrl}`;
 
         const dbResponse = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips`, {
@@ -238,7 +244,7 @@
         
         loadClips();
       } catch (err) {
-        alert('Ошибка файла: ' + err.message);
+        alert('СБОЙ ПРИ ОТПРАВКЕ ФАЙЛА:\n' + err.message + '\n\nВы выполнили SQL-скрипт в панели Supabase?');
         btn.innerHTML = '📎 Прикрепить файл';
         btn.className = 'btn btn-attach';
       }
@@ -248,7 +254,6 @@
       if (isClearing) return;
 
       try {
-        // Жесткие заголовки для предотвращения кэширования в Safari
         const response = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?select=*&order=created_at.desc`, {
           method: 'GET',
           headers: {
@@ -270,7 +275,7 @@
 
         const validClips = data.filter(c => new Date(c.created_at).getTime() >= sixHoursAgo);
 
-        document.getElementById('status').innerText = '🟢 Подключено (v3.6)';
+        document.getElementById('status').innerText = '🟢 Подключено (v3.7)';
         document.getElementById('status').style.color = '#34c759';
 
         const list = document.getElementById('clipsList');
@@ -309,7 +314,6 @@
       const clearBtn = document.getElementById('clearBtn');
       clearBtn.innerText = 'Очистка...';
 
-      // Моментально удаляем плашки визуально
       document.getElementById('clipsList').innerHTML = '<p style="text-align:center; color:#8e8e93; margin-top:20px;">Буфер пуст</p>';
 
       try {
