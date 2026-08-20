@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Quick Clip v4.6</title>
+  <title>Quick Clip v4.7</title>
 
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f2f2f7; -webkit-tap-highlight-color: transparent; }
@@ -38,12 +38,6 @@
     
     #status { font-size: 14px; text-align: center; margin-top: 16px; font-weight: 600; color: #ff9f0a; }
     #version-tag { font-size: 12px; color: #8e8e93; text-align: center; margin-top: 6px; }
-
-    .debug-box { margin-top: 25px; padding: 12px; background: #1c1c1e; color: #30d158; font-family: monospace; font-size: 11px; border-radius: 10px; max-height: 200px; overflow-y: auto; border: 1px solid #3a3a3c; }
-    .debug-title { color: #ffd60a; font-weight: bold; margin-bottom: 8px; display: flex; justify-content: space-between; }
-    .log-err { color: #ff453a; margin-bottom: 4px; }
-    .log-info { color: #64d2ff; margin-bottom: 4px; }
-    .log-normal { margin-bottom: 4px; color: #e5e5ea; }
   </style>
 </head>
 <body>
@@ -52,24 +46,15 @@
   <div id="editor" contenteditable="true" placeholder="Вставьте текст или скопируйте отсюда..."></div>
   
   <button id="attachBtn" class="btn btn-attach" onclick="triggerFileInput()">📎 Прикрепить файл</button>
-  <!-- Убраны ограничения по типам, чтобы принимать любые форматы (docx, xlsx, pdf и т.д.) -->
   <input type="file" id="fileInput" onchange="handleFileSelect(event)">
 
   <button id="sendBtn" class="btn btn-primary" onclick="sendClip()">Отправить в буфер</button>
   <button id="clearBtn" class="btn btn-clear" onclick="clearAllHistory()">🗑 Очистить всю историю</button>
 
   <div id="status">⏳ Подключение...</div>
-  <div id="version-tag">Версия v4.6 • Universal Files Support</div>
+  <div id="version-tag">Версия v4.7 • Latin Core</div>
 
   <div id="clipsList"></div>
-
-  <div class="debug-box">
-    <div class="debug-title">
-      <span>🛠 ТЕСТИРОВЩИК v4.6</span>
-      <span style="cursor:pointer; color:#8e8e93;" onclick="clearLogs()">[Очистить]</span>
-    </div>
-    <div id="debugLogs"></div>
-  </div>
 
   <script>
     const SUPABASE_BASE_URL = 'https://vnzgdrqupislieaonpic.supabase.co';
@@ -82,23 +67,12 @@
     let selectedFile = null;
     let isClearing = false;
 
-    function log(msg, type = 'normal') {
-      const logs = document.getElementById('debugLogs');
-      if (!logs) return;
-      const time = new Date().toLocaleTimeString();
-      const cls = type === 'err' ? 'log-err' : type === 'info' ? 'log-info' : 'log-normal';
-      logs.innerHTML += `<div class="${cls}">[${time}] ${msg}</div>`;
-      logs.scrollTop = logs.scrollHeight;
-    }
-    function clearLogs() { document.getElementById('debugLogs').innerHTML = ''; }
-
     function triggerFileInput() {
       if (selectedFile) {
         selectedFile = null;
         document.getElementById('fileInput').value = '';
         document.getElementById('attachBtn').innerHTML = '📎 Прикрепить файл';
         document.getElementById('attachBtn').className = 'btn btn-attach';
-        log('Файл откреплен', 'info');
         return;
       }
       document.getElementById('fileInput').click();
@@ -116,7 +90,6 @@
       const btn = document.getElementById('attachBtn');
       btn.innerHTML = `🚀 Готов файл: ${file.name.substring(0, 18)}...`;
       btn.className = 'btn btn-file-ready';
-      log(`Выбран файл: ${file.name} (${file.type || 'тип не указан ОС'})`, 'info');
     }
 
     async function sendClip() {
@@ -142,7 +115,7 @@
         setTimeout(() => { btn.innerText = 'Отправить в буфер'; }, 2000);
         loadClips();
       } catch (err) { 
-        log('Ошибка текста: ' + err.message, 'err');
+        alert('Ошибка текста: ' + err.message);
         btn.innerText = 'Отправить в буфер'; 
       }
     }
@@ -151,17 +124,18 @@
       const btn = document.getElementById('sendBtn');
       const attachBtn = document.getElementById('attachBtn');
       btn.innerText = 'Загрузка файла...';
-      log('Старт загрузки документа в Storage...');
 
       try {
-        const safeName = (selectedFile.name || 'file').replace(/[^a-zA-Z0-9.\-_а-яА-ЯёЁ]/g, '_');
-        const fileName = `${Date.now()}_${safeName}`;
-        const encodedFileName = encodeURIComponent(fileName);
+        // Убиваем проблему кириллицы: генерируем полностью латинский системный ключ
+        let ext = '';
+        if (selectedFile.name.includes('.')) {
+          ext = '.' + selectedFile.name.split('.').pop();
+        }
+        const safeStorageName = `doc_${Date.now()}_${Math.floor(Math.random() * 1000)}${ext}`;
         
-        // УНИВЕРСАЛЬНЫЙ ТИП: если у файла нет MIME-типа (как у .docx от iOS), ставим бинарный поток
         const fileMimeType = selectedFile.type && selectedFile.type !== "" ? selectedFile.type : 'application/octet-stream';
 
-        const uploadResponse = await fetch(`${SUPABASE_BASE_URL}/storage/v1/object/files/${encodedFileName}`, {
+        const uploadResponse = await fetch(`${SUPABASE_BASE_URL}/storage/v1/object/files/${safeStorageName}`, {
           method: 'POST',
           headers: {
             'apikey': SUPABASE_KEY,
@@ -172,11 +146,12 @@
         });
 
         if (!uploadResponse.ok) {
-          const errText = await uploadResponse.text();
-          throw new Error(`Storage Error (${uploadResponse.status}): ${errText}`);
+          throw new Error("Хранилище отклонило файл. Проверьте сеть.");
         }
 
-        const filePublicUrl = `${SUPABASE_BASE_URL}/storage/v1/object/public/files/${encodedFileName}`;
+        const filePublicUrl = `${SUPABASE_BASE_URL}/storage/v1/object/public/files/${safeStorageName}`;
+        
+        // Сохраняем ОРИГИНАЛЬНОЕ имя для красивого отображения в интерфейсе
         const fileContentMarker = `FILE:${selectedFile.name}||${filePublicUrl}`;
 
         const dbResponse = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips`, {
@@ -185,7 +160,6 @@
 
         if (!dbResponse.ok) throw new Error("Ошибка привязки файла к БД");
 
-        log('Документ успешно загружен и привязан!', 'info');
         selectedFile = null;
         document.getElementById('fileInput').value = '';
         attachBtn.innerHTML = '📎 Прикрепить файл';
@@ -195,7 +169,7 @@
         setTimeout(() => { btn.innerText = 'Отправить в буфер'; }, 2000);
         loadClips();
       } catch (err) {
-        log('Ошибка файла: ' + err.message, 'err');
+        alert('Ошибка файла: ' + err.message);
         btn.innerText = 'Отправить в буфер';
       }
     }
@@ -220,7 +194,7 @@
 
         const validClips = data.filter(c => new Date(c.created_at).getTime() >= sixHoursAgo);
         
-        document.getElementById('status').innerText = '🟢 Подключено (v4.6)';
+        document.getElementById('status').innerText = '🟢 Подключено (v4.7)';
         document.getElementById('status').style.color = '#34c759';
 
         const list = document.getElementById('clipsList');
@@ -303,7 +277,7 @@
         }
         clearBtn.innerText = 'Удалено ✔';
       } catch (err) { 
-        log('Ошибка очистки: ' + err.message, 'err');
+        alert('Ошибка при очистке');
       } finally { 
         setTimeout(() => { clearBtn.innerText = '🗑 Очистить всю историю'; }, 2000);
         isClearing = false; 
