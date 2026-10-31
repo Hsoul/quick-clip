@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Quick Clip v4.7</title>
+  <title>Quick Clip v4.8</title>
 
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f2f2f7; -webkit-tap-highlight-color: transparent; }
@@ -52,7 +52,7 @@
   <button id="clearBtn" class="btn btn-clear" onclick="clearAllHistory()">🗑 Очистить всю историю</button>
 
   <div id="status">⏳ Подключение...</div>
-  <div id="version-tag">Версия v4.7 • Latin Core</div>
+  <div id="version-tag">Версия v4.8 • Full Auto-Wipe Fix</div>
 
   <div id="clipsList"></div>
 
@@ -126,13 +126,11 @@
       btn.innerText = 'Загрузка файла...';
 
       try {
-        // Убиваем проблему кириллицы: генерируем полностью латинский системный ключ
         let ext = '';
         if (selectedFile.name.includes('.')) {
           ext = '.' + selectedFile.name.split('.').pop();
         }
         const safeStorageName = `doc_${Date.now()}_${Math.floor(Math.random() * 1000)}${ext}`;
-        
         const fileMimeType = selectedFile.type && selectedFile.type !== "" ? selectedFile.type : 'application/octet-stream';
 
         const uploadResponse = await fetch(`${SUPABASE_BASE_URL}/storage/v1/object/files/${safeStorageName}`, {
@@ -145,13 +143,9 @@
           body: selectedFile
         });
 
-        if (!uploadResponse.ok) {
-          throw new Error("Хранилище отклонило файл. Проверьте сеть.");
-        }
+        if (!uploadResponse.ok) throw new Error("Хранилище отклонило файл.");
 
         const filePublicUrl = `${SUPABASE_BASE_URL}/storage/v1/object/public/files/${safeStorageName}`;
-        
-        // Сохраняем ОРИГИНАЛЬНОЕ имя для красивого отображения в интерфейсе
         const fileContentMarker = `FILE:${selectedFile.name}||${filePublicUrl}`;
 
         const dbResponse = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips`, {
@@ -194,7 +188,7 @@
 
         const validClips = data.filter(c => new Date(c.created_at).getTime() >= sixHoursAgo);
         
-        document.getElementById('status').innerText = '🟢 Подключено (v4.7)';
+        document.getElementById('status').innerText = '🟢 Подключено (v4.8)';
         document.getElementById('status').style.color = '#34c759';
 
         const list = document.getElementById('clipsList');
@@ -287,7 +281,26 @@
 
     async function cleanOldData(oldClips) {
       for (const clip of oldClips) {
-        try { await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?id=eq.${clip.id}`, { method: 'DELETE', headers: HEADERS }); } catch (e) {}
+        try { 
+          // 1. Удаляем запись из базы данных
+          await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips?id=eq.${clip.id}`, { method: 'DELETE', headers: HEADERS }); 
+          
+          // 2. И если это был файл — обязательно удаляем его физически из Storage
+          if (clip.content && clip.content.startsWith('FILE:')) {
+            const parts = clip.content.replace('FILE:', '').split('||');
+            const fUrl = parts[1];
+            if (fUrl) {
+              const fileStoragePath = fUrl.split('/files/')[1];
+              if (fileStoragePath) {
+                await fetch(`${SUPABASE_BASE_URL}/storage/v1/object/files/${fileStoragePath}`, {
+                  method: 'DELETE', headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                });
+              }
+            }
+          }
+        } catch (e) {
+          // Игнорируем фоновые ошибки сети при автоочистке
+        }
       }
     }
 
