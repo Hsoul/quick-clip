@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Quick Clip v4.8</title>
+  <title>Quick Clip v4.9</title>
   
   <!-- Иконка для экрана «Домой» iOS -->
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -48,14 +48,15 @@
   <h2>Quick Clip 📋</h2>
   <div id="editor" contenteditable="true" placeholder="Вставьте текст или скопируйте отсюда..."></div>
   
-  <button id="attachBtn" class="btn btn-attach" onclick="triggerFileInput()">📎 Прикрепить файл</button>
-  <input type="file" id="fileInput" onchange="handleFileSelect(event)">
+  <button id="attachBtn" class="btn btn-attach" onclick="triggerFileInput()">📎 Прикрепить файлы</button>
+  <!-- Атрибут multiple позволяет выбирать сразу несколько файлов -->
+  <input type="file" id="fileInput" multiple onchange="handleFileSelect(event)">
 
   <button id="sendBtn" class="btn btn-primary" onclick="sendClip()">Отправить в буфер</button>
   <button id="clearBtn" class="btn btn-clear" onclick="clearAllHistory()">🗑 Очистить всю историю</button>
 
   <div id="status">⏳ Подключение...</div>
-  <div id="version-tag">Версия v4.8 • Full Auto-Wipe Fix</div>
+  <div id="version-tag">Версия v4.9 • Multi-File Batch</div>
 
   <div id="clipsList"></div>
 
@@ -67,14 +68,14 @@
       'Content-Type': 'application/json', 'Prefer': 'return=representation' 
     };
 
-    let selectedFile = null;
+    let selectedFiles = []; // Массив для хранения выбранного пакета файлов
     let isClearing = false;
 
     function triggerFileInput() {
-      if (selectedFile) {
-        selectedFile = null;
+      if (selectedFiles.length > 0) {
+        selectedFiles = [];
         document.getElementById('fileInput').value = '';
-        document.getElementById('attachBtn').innerHTML = '📎 Прикрепить файл';
+        document.getElementById('attachBtn').innerHTML = '📎 Прикрепить файлы';
         document.getElementById('attachBtn').className = 'btn btn-attach';
         return;
       }
@@ -82,24 +83,39 @@
     }
 
     function handleFileSelect(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      if (file.size > 15 * 1024 * 1024) {
-        alert("Файл слишком большой! Максимальный размер — 15 МБ.");
+      const files = Array.from(event.target.files);
+      if (!files || files.length === 0) return;
+
+      // Проверка размера каждого файла (не более 15 МБ на файл)
+      const oversizedFiles = files.filter(f => f.size > 15 * 1024 * 1024);
+      if (oversizedFiles.length > 0) {
+        alert(`Некоторые файлы превышают 15 МБ и не были добавлены: ${oversizedFiles.map(f => f.name).join(', ')}`);
+      }
+
+      selectedFiles = files.filter(f => f.size <= 15 * 1024 * 1024);
+
+      if (selectedFiles.length === 0) {
         event.target.value = '';
         return;
       }
-      selectedFile = file;
+
+      const totalSizeMb = (selectedFiles.reduce((acc, f) => acc + f.size, 0) / (1024 * 1024)).toFixed(1);
       const btn = document.getElementById('attachBtn');
-      btn.innerHTML = `🚀 Готов файл: ${file.name.substring(0, 18)}...`;
+      
+      if (selectedFiles.length === 1) {
+        btn.innerHTML = `🚀 Готов файл: ${selectedFiles[0].name.substring(0, 18)}...`;
+      } else {
+        btn.innerHTML = `🚀 Готово файлов: ${selectedFiles.length} (${totalSizeMb} МБ)`;
+      }
       btn.className = 'btn btn-file-ready';
     }
 
     async function sendClip() {
-      if (selectedFile) {
-        await uploadFile();
+      if (selectedFiles.length > 0) {
+        await uploadFilesBatch();
         return;
       }
+      
       const editor = document.getElementById('editor');
       const textHtml = editor.innerHTML; 
       if (!textHtml.trim() || textHtml === '<br>') return;
@@ -123,50 +139,60 @@
       }
     }
 
-    async function uploadFile() {
+    // Загрузка пакета файлов по очереди
+    async function uploadFilesBatch() {
       const btn = document.getElementById('sendBtn');
       const attachBtn = document.getElementById('attachBtn');
-      btn.innerText = 'Загрузка файла...';
+      const totalCount = selectedFiles.length;
 
       try {
-        let ext = '';
-        if (selectedFile.name.includes('.')) {
-          ext = '.' + selectedFile.name.split('.').pop();
+        for (let i = 0; i < totalCount; i++) {
+          const file = selectedFiles[i];
+          btn.innerText = `Загрузка ${i + 1} из ${totalCount}...`;
+
+          let ext = '';
+          if (file.name.includes('.')) {
+            ext = '.' + file.name.split('.').pop();
+          }
+          const safeStorageName = `doc_${Date.now()}_${Math.floor(Math.random() * 1000)}${ext}`;
+          const fileMimeType = file.type && file.type !== "" ? file.type : 'application/octet-stream';
+
+          const uploadResponse = await fetch(`${SUPABASE_BASE_URL}/storage/v1/object/files/${safeStorageName}`, {
+            method: 'POST',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'Content-Type': fileMimeType
+            },
+            body: file
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error(`Хранилище отклонило файл "${file.name}".`);
+          }
+
+          const filePublicUrl = `${SUPABASE_BASE_URL}/storage/v1/object/public/files/${safeStorageName}`;
+          const fileContentMarker = `FILE:${file.name}||${filePublicUrl}`;
+
+          const dbResponse = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips`, {
+            method: 'POST', headers: HEADERS, body: JSON.stringify({ content: fileContentMarker })
+          });
+
+          if (!dbResponse.ok) {
+            throw new Error(`Ошибка привязки файла "${file.name}" к БД.`);
+          }
         }
-        const safeStorageName = `doc_${Date.now()}_${Math.floor(Math.random() * 1000)}${ext}`;
-        const fileMimeType = selectedFile.type && selectedFile.type !== "" ? selectedFile.type : 'application/octet-stream';
 
-        const uploadResponse = await fetch(`${SUPABASE_BASE_URL}/storage/v1/object/files/${safeStorageName}`, {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': fileMimeType
-          },
-          body: selectedFile
-        });
-
-        if (!uploadResponse.ok) throw new Error("Хранилище отклонило файл.");
-
-        const filePublicUrl = `${SUPABASE_BASE_URL}/storage/v1/object/public/files/${safeStorageName}`;
-        const fileContentMarker = `FILE:${selectedFile.name}||${filePublicUrl}`;
-
-        const dbResponse = await fetch(`${SUPABASE_BASE_URL}/rest/v1/clips`, {
-          method: 'POST', headers: HEADERS, body: JSON.stringify({ content: fileContentMarker })
-        });
-
-        if (!dbResponse.ok) throw new Error("Ошибка привязки файла к БД");
-
-        selectedFile = null;
+        selectedFiles = [];
         document.getElementById('fileInput').value = '';
-        attachBtn.innerHTML = '📎 Прикрепить файл';
+        attachBtn.innerHTML = '📎 Прикрепить файлы';
         attachBtn.className = 'btn btn-attach';
         
         btn.innerText = 'Отправлено ✔';
         setTimeout(() => { btn.innerText = 'Отправить в буфер'; }, 2000);
         loadClips();
       } catch (err) {
-        alert('Ошибка файла: ' + err.message);
+        alert('Ошибка при отправке файлов: ' + err.message);
         btn.innerText = 'Отправить в буфер';
       }
     }
@@ -191,7 +217,7 @@
 
         const validClips = data.filter(c => new Date(c.created_at).getTime() >= sixHoursAgo);
         
-        document.getElementById('status').innerText = '🟢 Подключено (v4.8)';
+        document.getElementById('status').innerText = '🟢 Подключено (v4.9)';
         document.getElementById('status').style.color = '#34c759';
 
         const list = document.getElementById('clipsList');
